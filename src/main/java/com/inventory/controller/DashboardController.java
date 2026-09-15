@@ -1,18 +1,50 @@
 package com.inventory.controller;
 
 import com.inventory.Main;
+import com.inventory.util.Session;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 
 import java.io.IOException;
 
 /**
  * Controller for dashboard.fxml.
  *
- * Phase 1 only needs this to exist and support navigating back to the
- * Login screen. Inventory features (add/edit/delete/search products, etc.)
- * will be added to this controller in Phase 3.
+ * Phase 1 only needed this to exist and support navigating back to the
+ * Login screen. Phase 3 adds a button that opens the Inventory screen.
+ *
+ * OOP concept: this controller does not know HOW inventory is stored or
+ * validated - it only knows how to switch the JavaFX scene. All of that
+ * other logic lives in InventoryController -> ProductService/InventoryService
+ * -> ProductFileRepository.
  */
 public class DashboardController {
+
+    @FXML
+    private Button inventoryButton;
+
+    /**
+     * Called automatically when this screen first loads.
+     * CASHIER users cannot manage inventory, so their Inventory button is
+     * disabled here (they never see the option at all, per project rules).
+     */
+    @FXML
+    private void initialize() {
+        inventoryButton.setDisable(!Session.isAdmin());
+    }
+
+    /**
+     * Called automatically when the "Inventory" button is clicked
+     * (linked via onAction="#handleOpenInventory" in dashboard.fxml).
+     */
+    @FXML
+    private void handleOpenInventory() {
+        try {
+            Main.switchScene("view/inventory.fxml");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Called automatically when the "Logout" button is clicked

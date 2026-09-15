@@ -2,15 +2,20 @@
 
 ## Current Status
 
-Part 1 and Part 2 are complete and tested.
+Parts 1, 2, and 3 are complete and tested (manually reviewed; see Part 3
+Testing Notes below regarding compiler availability).
 
 - Java 21
 - Maven
 - JavaFX
-- Login system works (screen navigation only; no real auth yet)
-- Admin and Cashier roles implemented
-- Role-based access implemented
-- File I/O for users implemented
+- Login screen lets the user pick a Role (ADMIN / CASHIER) from a dropdown
+  and stores it in Session. This is NOT a full username/password
+  authentication system yet - that would require a User model/service,
+  which has not been requested.
+- Session (com.inventory.util) holds the currently selected Role for the
+  whole running application.
+- Dashboard has a working "Inventory" button (disabled for CASHIER) and
+  "Logout" button.
 - Product model with Category enum implemented
 - Product data persists to data/products.txt (auto-created with sample data)
 - ProductFileRepository handles all product File I/O
@@ -18,14 +23,20 @@ Part 1 and Part 2 are complete and tested.
 - InventoryService handles stock in/out and low-stock detection
 - Custom exceptions: ProductNotFoundException, DuplicateProductException,
   InsufficientStockException, InvalidProductException
+- Inventory screen (inventory.fxml + InventoryController): TableView of all
+  products with a computed Status column (OK / LOW STOCK), Add/Edit/Delete,
+  Stock In/Stock Out, search box, category filter, and a Low Stock toggle -
+  all working together. ADMIN-only actions are disabled for CASHIER both at
+  the Dashboard (nav button hidden/disabled) and again inside the Inventory
+  screen itself (defense in depth).
 
 ## Current Phase
 
-Part 2 completed (Product and Inventory backend only — no UI screens yet).
+Part 3 completed: Inventory Management JavaFX UI.
 
-Next phase: Part 3 — Inventory JavaFX screen (list/add/edit/delete products
-in the Dashboard), using ProductService and InventoryService from the
-controller layer. POS/cart/payment/checkout/reports come after that.
+Next phase: Part 4 — Point of Sale (cart, checkout, payment, sales
+receipts/reports). A real User/authentication system can also be added
+at that point if desired, replacing the simple Session/Role dropdown.
 
 ## Important Rules
 
@@ -54,6 +65,23 @@ Services
 Repositories
 ↓
 File I/O
+
+## Part 3 Testing Notes
+
+The sandbox used to build this phase does not have a JDK compiler
+(`javac`) or Maven installed, and has no network access to download
+JavaFX. Every new/changed file was therefore verified by hand instead of
+with a live `mvn compile`:
+- Every `fx:id` and `onAction="#method"` in login.fxml, dashboard.fxml,
+  and inventory.fxml was cross-checked against a matching `@FXML` field
+  or method in the matching controller.
+- Every model/service/repository method called from a controller was
+  checked against its real method signature.
+- Imports were checked against every class/type actually used.
+
+Please run `mvn clean javafx:run` (or `mvn clean compile`) in IntelliJ
+as the first step of testing this phase, and report back any compiler
+errors so they can be fixed immediately (project rule #12).
 
 ## Development Rule
 

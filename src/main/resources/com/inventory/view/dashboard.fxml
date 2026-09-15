@@ -17,6 +17,7 @@
             <padding>
                 <Insets top="10" right="15" bottom="10" left="15"/>
             </padding>
+            <Button fx:id="inventoryButton" text="Inventory" onAction="#handleOpenInventory"/>
             <Button text="Logout" onAction="#handleLogout"/>
         </HBox>
     </top>
@@ -24,7 +25,7 @@
     <center>
         <VBox alignment="CENTER" spacing="10">
             <Label text="Dashboard" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
-            <Label text="Inventory and sales features will be added in the next phases."/>
+            <Label text="Sales/POS features will be added in a later phase."/>
         </VBox>
     </center>
 

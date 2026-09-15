@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefWidth="1000" prefHeight="620"
+            xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.inventory.controller.InventoryController">
+
+    <!-- ===================== TOP: title bar + search/filter bar ===================== -->
+    <top>
+        <VBox spacing="10">
+            <padding>
+                <Insets top="10" right="15" bottom="10" left="15"/>
+            </padding>
+
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Button text="Back" onAction="#handleBack"/>
+                <Label text="Inventory Management" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            </HBox>
+
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label text="Search:"/>
+                <TextField fx:id="searchField" promptText="Search by ID or name" prefWidth="200"/>
+
+                <Label text="Category:"/>
+                <ComboBox fx:id="categoryFilterComboBox" prefWidth="130"/>
+
+                <ToggleButton fx:id="lowStockToggleButton" text="Low Stock" onAction="#handleLowStockToggle"/>
+                <Button text="Refresh" onAction="#handleRefresh"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <!-- ===================== CENTER: product table ===================== -->
+    <center>
+        <TableView fx:id="productTable">
+            <BorderPane.margin>
+                <Insets top="0" right="15" bottom="15" left="15"/>
+            </BorderPane.margin>
+            <columns>
+                <TableColumn fx:id="idColumn" text="ID" prefWidth="70"/>
+                <TableColumn fx:id="nameColumn" text="Name" prefWidth="150"/>
+                <TableColumn fx:id="categoryColumn" text="Category" prefWidth="90"/>
+                <TableColumn fx:id="priceColumn" text="Price" prefWidth="80"/>
+                <TableColumn fx:id="quantityColumn" text="Quantity" prefWidth="80"/>
+                <TableColumn fx:id="minStockColumn" text="Min Stock" prefWidth="80"/>
+                <TableColumn fx:id="statusColumn" text="Status" prefWidth="100"/>
+            </columns>
+        </TableView>
+    </center>
+
+    <!-- ===================== RIGHT: add/edit form + stock adjustment ===================== -->
+    <right>
+        <VBox spacing="12" prefWidth="280">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="0"/>
+            </padding>
+
+            <Label text="Product Details" style="-fx-font-weight: bold;"/>
+
+            <GridPane hgap="8" vgap="8">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="90"/>
+                    <ColumnConstraints minWidth="160"/>
+                </columnConstraints>
+
+                <Label text="Product ID" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <TextField fx:id="idField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                <Label text="Name" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <TextField fx:id="nameField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                <Label text="Category" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                <ComboBox fx:id="categoryFormComboBox" GridPane.rowIndex="2" GridPane.columnIndex="1" prefWidth="160"/>
+
+                <Label text="Price" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                <TextField fx:id="priceField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                <Label text="Quantity" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                <TextField fx:id="quantityField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                <Label text="Minimum Stock" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+                <TextField fx:id="minStockField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+            </GridPane>
+
+            <HBox spacing="8">
+                <Button fx:id="addButton" text="Add Product" onAction="#handleAddProduct"/>
+                <Button fx:id="updateButton" text="Update" onAction="#handleUpdateProduct"/>
+            </HBox>
+            <HBox spacing="8">
+                <Button fx:id="deleteButton" text="Delete" onAction="#handleDeleteProduct"/>
+                <Button text="Clear Form" onAction="#handleClearForm"/>
+            </HBox>
+
+            <Separator/>
+
+            <Label text="Stock Adjustment" style="-fx-font-weight: bold;"/>
+            <Label fx:id="selectedProductLabel" text="Selected Product: (none)" wrapText="true"/>
+
+            <HBox alignment="CENTER_LEFT" spacing="8">
+                <Label text="Amount:"/>
+                <TextField fx:id="stockAmountField" prefWidth="80"/>
+            </HBox>
+
+            <HBox spacing="8">
+                <Button fx:id="stockInButton" text="Stock In" onAction="#handleStockIn"/>
+                <Button fx:id="stockOutButton" text="Stock Out" onAction="#handleStockOut"/>
+            </HBox>
+
+            <Separator/>
+
+            <Label fx:id="statusMessageLabel" wrapText="true" style="-fx-text-fill: #2e7d32;"/>
+        </VBox>
+    </right>
+
+</BorderPane>
