@@ -18,6 +18,7 @@
                 <Insets top="10" right="15" bottom="10" left="15"/>
             </padding>
             <Button fx:id="inventoryButton" text="Inventory" onAction="#handleOpenInventory"/>
+            <Button text="Point of Sale" onAction="#handleOpenPOS"/>
             <Button text="Logout" onAction="#handleLogout"/>
         </HBox>
     </top>
@@ -25,7 +26,7 @@
     <center>
         <VBox alignment="CENTER" spacing="10">
             <Label text="Dashboard" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
-            <Label text="Sales/POS features will be added in a later phase."/>
+            <Label text="Use Point of Sale to build a cart. Checkout/payment is coming in a later phase."/>
         </VBox>
     </center>
 

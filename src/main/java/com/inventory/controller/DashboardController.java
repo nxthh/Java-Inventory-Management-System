@@ -27,6 +27,8 @@ public class DashboardController {
      * Called automatically when this screen first loads.
      * CASHIER users cannot manage inventory, so their Inventory button is
      * disabled here (they never see the option at all, per project rules).
+     * The POS button has no such restriction: both ADMIN and CASHIER are
+     * allowed to use the Point of Sale screen.
      */
     @FXML
     private void initialize() {
@@ -41,6 +43,20 @@ public class DashboardController {
     private void handleOpenInventory() {
         try {
             Main.switchScene("view/inventory.fxml");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Called automatically when the "Point of Sale" button is clicked
+     * (linked via onAction="#handleOpenPOS" in dashboard.fxml). Both ADMIN
+     * and CASHIER users are allowed to reach this screen.
+     */
+    @FXML
+    private void handleOpenPOS() {
+        try {
+            Main.switchScene("view/pos.fxml");
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -1,0 +1,6 @@
+P001,Coca Cola,Drink,1.5,50,10
+P002,Pepsi,Drink,1.5,30,10
+P003,Bread,Food,2.0,15,5
+P004,Milk,Dairy,2.5,20,5
+P005,Instant Noodles,Food,1.25,40,10
+P006,Monster Energy Drink,Drink,3.0,24,10
