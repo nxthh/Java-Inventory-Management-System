@@ -1,4 +1,4 @@
-P001,Coca Cola,Drink,1.5,50,10
+P001,Coca Cola,Drink,1.5,49,10
 P002,Pepsi,Drink,1.5,30,10
 P003,Bread,Food,2.0,8,5
 P004,Milk,Dairy,2.5,20,5

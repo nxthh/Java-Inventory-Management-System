@@ -18,6 +18,12 @@ public class Session {
     // Defaults to ADMIN so the app is usable even before a role is chosen.
     private static Role currentRole = Role.ADMIN;
 
+    // Part 6A: also remembers who is logged in, so a saved Transaction
+    // can record a real "cashier" name instead of just a Role. Defaults
+    // to "Cashier" so the POS screen still works even if it is opened
+    // without going through the Login screen first.
+    private static String currentUsername = "Cashier";
+
     // Private constructor: nobody should create a Session object.
     // Every method here is static, so the class is used as
     // Session.getCurrentRole() / Session.setCurrentRole(...).
@@ -34,5 +40,17 @@ public class Session {
 
     public static boolean isAdmin() {
         return currentRole == Role.ADMIN;
+    }
+
+    public static String getCurrentUsername() {
+        return currentUsername;
+    }
+
+    /**
+     * Stores the logged-in username. Blank/missing input falls back to
+     * "Cashier" instead of saving an empty name into transactions.
+     */
+    public static void setCurrentUsername(String username) {
+        currentUsername = (username == null || username.isBlank()) ? "Cashier" : username.trim();
     }
 }

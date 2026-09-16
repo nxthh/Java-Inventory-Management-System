@@ -9,6 +9,8 @@ import com.inventory.model.Discount;
 import com.inventory.model.Product;
 import com.inventory.model.Transaction;
 import com.inventory.model.payment.Payment;
+import com.inventory.repository.TransactionFileRepository;
+import com.inventory.util.Session;
 
 import java.util.List;
 
@@ -34,12 +36,14 @@ public class CheckoutService {
     private final ProductService productService;
     private final InventoryService inventoryService;
     private final TaxCalculator taxCalculator;
+    private final TransactionFileRepository transactionFileRepository;
 
     public CheckoutService(ProductService productService, InventoryService inventoryService,
-                            TaxCalculator taxCalculator) {
+                            TaxCalculator taxCalculator, TransactionFileRepository transactionFileRepository) {
         this.productService = productService;
         this.inventoryService = inventoryService;
         this.taxCalculator = taxCalculator;
+        this.transactionFileRepository = transactionFileRepository;
     }
 
     /**
@@ -67,7 +71,8 @@ public class CheckoutService {
      *   7. Process the payment (Cash / Card / QR each decide this differently).
      *   8. ONLY if payment succeeds: deduct stock for every item.
      *   9. Build a Transaction object describing what just happened.
-     *   10. Clear the cart, ready for the next customer.
+     *   10. Save the transaction to data/transactions.txt so it survives a restart.
+     *   11. Clear the cart, ready for the next customer.
      *
      * @throws InvalidCartOperationException if the cart is empty
      * @throws InsufficientStockException    if any item no longer has enough stock
@@ -103,12 +108,18 @@ public class CheckoutService {
             inventoryService.stockOut(item.getProduct().getId(), item.getQuantity());
         }
 
-        // Step 9: build a record of the completed sale. It is returned to
-        // the caller but not saved to a file yet (a later phase).
-        Transaction transaction = new Transaction(items, totals.getSubtotal(),
+        // Step 9: build a record of the completed sale, giving it a fresh
+        // unique ID and remembering who was logged in as the cashier.
+        String transactionId = transactionFileRepository.generateNextTransactionId();
+        String cashier = Session.getCurrentUsername();
+        Transaction transaction = new Transaction(transactionId, cashier, items, totals.getSubtotal(),
                 totals.getDiscountAmount(), totals.getTaxAmount(), totals.getTotal(), payment);
 
-        // Step 10: start fresh for the next sale.
+        // Step 10: persist the transaction immediately, so it survives
+        // an application restart even if nothing else happens after this.
+        transactionFileRepository.saveTransaction(transaction);
+
+        // Step 11: start fresh for the next sale.
         cart.clear();
 
         return transaction;

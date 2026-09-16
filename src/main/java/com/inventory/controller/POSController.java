@@ -17,6 +17,7 @@ import com.inventory.model.payment.CashPayment;
 import com.inventory.model.payment.Payment;
 import com.inventory.model.payment.QRPayment;
 import com.inventory.repository.ProductFileRepository;
+import com.inventory.repository.TransactionFileRepository;
 import com.inventory.service.CheckoutService;
 import com.inventory.service.InventoryService;
 import com.inventory.service.ProductService;
@@ -133,12 +134,16 @@ public class POSController {
     private final ProductService productService = new ProductService(productFileRepository);
     private final InventoryService inventoryService = new InventoryService(productFileRepository);
 
+    // Part 6A: handles all reading/writing of data/transactions.txt, so
+    // this controller never has to touch File I/O directly.
+    private final TransactionFileRepository transactionFileRepository = new TransactionFileRepository();
+
     // The store's tax rate lives in exactly ONE place. To change the tax
     // rate for the whole application, change this one number.
     private final TaxCalculator taxCalculator = new TaxCalculator(0.10); // 10%
 
     private final CheckoutService checkoutService =
-            new CheckoutService(productService, inventoryService, taxCalculator);
+            new CheckoutService(productService, inventoryService, taxCalculator, transactionFileRepository);
 
     // The cart for the CURRENT sale. A new POSController (and therefore a
     // new, empty Cart) is created each time the POS screen is opened.
@@ -538,15 +543,16 @@ public class POSController {
      */
     private void showCheckoutSuccess(Transaction transaction) {
         StringBuilder message = new StringBuilder();
+        message.append(String.format("Transaction ID: %s%n", transaction.getTransactionId()));
         message.append(String.format("Subtotal: $%.2f%n", transaction.getSubtotal()));
         message.append(String.format("Discount: $%.2f%n", transaction.getDiscountAmount()));
         message.append(String.format("Tax: $%.2f%n", transaction.getTaxAmount()));
         message.append(String.format("Total: $%.2f%n", transaction.getTotal()));
-        message.append(String.format("Payment Method: %s%n", transaction.getPayment().getMethodName()));
-        if (transaction.getPayment() instanceof CashPayment cashPayment) {
-            message.append(String.format("Amount Paid: $%.2f%n", cashPayment.getAmountPaid()));
+        message.append(String.format("Payment Method: %s%n", transaction.getPaymentMethod()));
+        if ("Cash".equals(transaction.getPaymentMethod())) {
+            message.append(String.format("Amount Paid: $%.2f%n", transaction.getAmountPaid()));
         }
-        message.append(String.format("Change: $%.2f", transaction.getPayment().getChange()));
+        message.append(String.format("Change: $%.2f", transaction.getChange()));
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION, message.toString(), ButtonType.OK);
         alert.setTitle("Checkout Complete");

@@ -70,6 +70,7 @@ public class LoginController {
                 selectedRole = Role.ADMIN;
             }
             Session.setCurrentRole(selectedRole);
+            Session.setCurrentUsername(usernameField.getText());
 
             Main.switchScene("view/dashboard.fxml");
         } catch (IOException e) {
