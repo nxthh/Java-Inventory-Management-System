@@ -26,6 +26,14 @@ import java.util.List;
  * remember what already happened. Simple fields are easy to save to a
  * text file and load back, exactly like Product does with
  * toFileLine()/fromFileLine().
+ *
+ * Part 6B note: a Transaction now also remembers the ID of the Receipt
+ * that was generated for it (e.g. "R0001"), so the Transaction History
+ * screen can look up and re-open the exact saved receipt file for any
+ * past sale. Older transactions saved before Part 6B do not have this
+ * value in the file - fromFileLines() below treats a missing receiptId
+ * as "" (no receipt available) instead of failing to load the whole
+ * transaction.
  */
 public class Transaction {
 
@@ -40,6 +48,7 @@ public class Transaction {
     private final String paymentMethod;
     private final double amountPaid;
     private final double change;
+    private final String receiptId;
 
     /**
      * Full constructor - mainly used by TransactionFileRepository when
@@ -49,7 +58,7 @@ public class Transaction {
     public Transaction(String transactionId, LocalDateTime dateTime, String cashier,
                         List<CartItem> items, double subtotal, double discountAmount,
                         double taxAmount, double total, String paymentMethod,
-                        double amountPaid, double change) {
+                        double amountPaid, double change, String receiptId) {
         this.transactionId = transactionId;
         this.dateTime = dateTime;
         this.cashier = cashier;
@@ -61,6 +70,7 @@ public class Transaction {
         this.paymentMethod = paymentMethod;
         this.amountPaid = amountPaid;
         this.change = change;
+        this.receiptId = (receiptId == null) ? "" : receiptId;
     }
 
     /**
@@ -76,11 +86,11 @@ public class Transaction {
      */
     public Transaction(String transactionId, String cashier, List<CartItem> items,
                         double subtotal, double discountAmount, double taxAmount,
-                        double total, Payment payment) {
+                        double total, Payment payment, String receiptId) {
         this(transactionId, LocalDateTime.now(), cashier, items, subtotal, discountAmount,
                 taxAmount, total, payment.getMethodName(),
                 (payment instanceof CashPayment cashPayment) ? cashPayment.getAmountPaid() : total,
-                payment.getChange());
+                payment.getChange(), receiptId);
     }
 
     // ----- Getters -----
@@ -129,6 +139,25 @@ public class Transaction {
         return change;
     }
 
+    /**
+     * The ID of the Receipt generated for this transaction (e.g.
+     * "R0001"), or "" if this transaction was saved before receipts
+     * existed (Part 6A data) and therefore has no receipt on file.
+     */
+    public String getReceiptId() {
+        return receiptId;
+    }
+
+    /**
+     * True if this transaction has a receipt ID recorded AND that
+     * receipt file still exists on disk is NOT checked here - this only
+     * checks whether an ID was ever recorded. ReceiptService/
+     * ReceiptFileRepository are responsible for checking the file itself.
+     */
+    public boolean hasReceipt() {
+        return receiptId != null && !receiptId.isBlank();
+    }
+
     // ----- File I/O helpers -----
 
     /**
@@ -139,7 +168,7 @@ public class Transaction {
      * closing END line so the reader knows where the block stops.
      *
      * Example:
-     *   TRANSACTION,T0001,2025-01-10T09:15:30,ADMIN,9.90,0.00,0.90,10.80,Cash,20.00,9.20
+     *   TRANSACTION,T0001,2025-01-10T09:15:30,ADMIN,9.90,0.00,0.90,10.80,Cash,20.00,9.20,R0001
      *   ITEM,P001,Coca Cola,Drink,1.50,2
      *   ITEM,P003,Bread,Food,2.00,1
      *   END
@@ -158,7 +187,8 @@ public class Transaction {
                 String.valueOf(total),
                 paymentMethod,
                 String.valueOf(amountPaid),
-                String.valueOf(change)));
+                String.valueOf(change),
+                receiptId));
 
         for (CartItem item : items) {
             Product product = item.getProduct();
@@ -201,7 +231,11 @@ public class Transaction {
         }
 
         String[] parts = header.split(",", -1);
-        if (parts.length != 11) {
+        // 11 fields = a transaction saved before Part 6B (no receiptId
+        // yet). 12 fields = a transaction saved by Part 6B or later
+        // (receiptId is the last field). Both are accepted so old data
+        // keeps working after this upgrade.
+        if (parts.length != 11 && parts.length != 12) {
             throw new IllegalArgumentException("Malformed TRANSACTION line: " + header);
         }
 
@@ -220,6 +254,7 @@ public class Transaction {
         String paymentMethod = parts[8].trim();
         double amountPaid = parseDouble(parts[9], "amountPaid", transactionId);
         double change = parseDouble(parts[10], "change", transactionId);
+        String receiptId = (parts.length == 12) ? parts[11].trim() : "";
 
         if (transactionId.isEmpty()) {
             throw new IllegalArgumentException("Transaction is missing its ID.");
@@ -245,7 +280,7 @@ public class Transaction {
         }
 
         return new Transaction(transactionId, dateTime, cashier, items, subtotal,
-                discountAmount, taxAmount, total, paymentMethod, amountPaid, change);
+                discountAmount, taxAmount, total, paymentMethod, amountPaid, change, receiptId);
     }
 
     /**

@@ -2,9 +2,48 @@
 
 ## Current Status
 
-Parts 1, 2, 3, 4, and 5 are complete and tested (Parts 4 and 5 were
-verified with a real compiler and a real JavaFX runtime - see the Testing
-Notes below).
+Parts 1, 2, 3, 4, 5, 6A, and 6B are complete and tested (Parts 4, 5, and
+6B were verified with a real compiler and a real JavaFX runtime - see the
+Testing Notes below).
+
+- **Part 6A - Transaction persistence:** `Transaction` (`model`) is now
+  saved to `data/transactions.txt` by `TransactionFileRepository`
+  (`repository`) as an append-only log (one block of lines per sale).
+  IDs are generated as `T0001`, `T0002`, ... by scanning the file, so
+  they never duplicate after a restart.
+- **Part 6B - Receipts, checkout integration, and Transaction History:**
+  - `ReceiptFileRepository` (`repository`) saves/loads one plain-text
+    file per sale under `data/receipts/` (e.g. `R0001.txt`), and
+    generates the next `R####` ID by scanning that folder - independent
+    of the transaction ID sequence, and equally restart-safe.
+  - `ReceiptService` (`service`) builds the receipt's text layout (store
+    name, itemized products, subtotal/discount/tax/total, payment
+    method, amount paid, change) and asks the repository to save/load
+    it. Controllers never format or save a receipt themselves.
+  - `Transaction` now also remembers the `receiptId` of the receipt
+    generated for it, saved as one extra field on its file line. Older
+    transactions saved before Part 6B (11 fields, no receiptId) still
+    load correctly - `receiptId` simply comes back as `""` for those,
+    and `Transaction.hasReceipt()` returns `false`.
+  - `CheckoutService.checkout()` now also generates and saves a Receipt
+    for every successful sale, right after the Transaction itself is
+    saved and before stock is deducted (see the updated flow in that
+    method's Javadoc). A failed payment still creates no Transaction, no
+    Receipt, and touches no stock.
+  - `POSController` shows the generated receipt in a simple popup
+    (`ReceiptDialog`, a small reusable JavaFX helper using a `TextArea`)
+    immediately after a successful checkout.
+  - `TransactionService` (`service`) sits between the new
+    `TransactionController` and `TransactionFileRepository`, and is
+    where the ADMIN-sees-everything / CASHIER-sees-only-their-own-sales
+    permission rule lives.
+  - `transactions.fxml` + `TransactionController` (`controller`): a new
+    Transaction History screen with a `TableView` (Transaction ID, Date,
+    Cashier, Total, Payment Method), reachable from the Dashboard by
+    both roles. Selecting a row and clicking "View Details" shows an
+    itemized breakdown; "View Receipt" re-opens the exact saved receipt
+    file for that sale, or shows a friendly message if no receipt was
+    ever saved for it (e.g. Part 6A data) or the file is missing.
 
 - Discount abstraction: `Discount` interface (`model`) with one
   implementation, `PercentageDiscount`, which takes a percentage off an
@@ -93,16 +132,16 @@ Notes below).
 
 ## Current Phase
 
-Part 5 completed: Discount, Tax, Payment (Cash/Card/QR), and full
-Checkout, wired into the existing POS screen.
+Part 6B completed: Receipt generation, checkout integration (a receipt is
+generated and shown after every successful sale), and a Transaction
+History screen with role-based visibility.
 
-Explicitly NOT built yet (by design, per the Part 5 request): saving
-`Transaction` objects to a file, a transaction history screen, receipts,
-and sales reports. Those are the next phase - `Transaction` already
-exists as a plain in-memory object, ready to be persisted later without
-needing to change its shape. A real User/authentication system can also
-be added at some point if desired, replacing the simple Session/Role
-dropdown.
+Explicitly NOT built yet (by design, no such request so far): sales
+reports/analytics (e.g. totals by day or by product), editing or voiding
+a past transaction, printing a receipt to an actual printer (it is only
+displayed on screen and saved as a `.txt` file), and a real
+User/authentication system (Session/Role dropdown is still the simple
+stand-in used since Part 3).
 
 ## Important Rules
 
@@ -230,6 +269,69 @@ Part 5 was verified with real tools, not just by hand-review:
 
 Please still run `mvn clean javafx:run` in IntelliJ to see the real
 checkout panel in action, and report back anything odd.
+
+## Part 6B Testing Notes
+
+This sandbox had a real JDK 21 (`javac`/`java`) and OpenJFX 11 installed
+(IntelliJ will use the real JavaFX 21 from Maven, per `pom.xml`, which is
+unaffected). Part 6B was verified with real tools, not just by
+hand-review:
+
+- `javac --release 21` compiled every source file in the project (Parts
+  1-6B together) against the JavaFX jars with zero errors.
+- A standalone test (not part of the app, lives outside `src/`) ran
+  against a throwaway COPY of the real `data/products.txt` and
+  `data/transactions.txt` (the project's real `data/` folder was never
+  touched). It exercised `CheckoutService`, `ReceiptService`,
+  `ReceiptFileRepository`, `TransactionFileRepository`, and
+  `TransactionService` directly with real file I/O. All 28 checks
+  passed, including:
+  - The existing Part 6A sample transaction (`T0001`, saved with the
+    OLD 11-field line format) still loads correctly, and correctly
+    reports it has no receipt (`hasReceipt() == false`).
+  - A successful CASH checkout (2x Bread + 1x Coca-Cola, 10% discount)
+    produced a `Transaction` with a real `receiptId`, deducted stock
+    correctly, cleared the cart, and saved a receipt file to
+    `data/receipts/R0001.txt` whose text contains the store name,
+    receipt ID, cashier name, every purchased product, TOTAL, and
+    Change.
+  - The saved transaction reloads from `data/transactions.txt` with the
+    SAME `receiptId` that was generated at checkout.
+  - A FAILED cash payment (not enough cash) threw `PaymentException` and
+    left the cart, stock, transaction file, AND receipts folder
+    completely unchanged - no partial transaction or orphaned receipt
+    was ever created.
+  - Receipt IDs (`R0001`, `R0002`, ...) and transaction IDs (`T0001`,
+    `T0002`, ...) both kept incrementing correctly from a brand-new
+    repository instance, simulating an application restart.
+  - A second successful (Card) checkout under a different logged-in
+    user, followed by checking `TransactionService.getVisibleTransactions()`:
+    an ADMIN session saw every transaction, while a CASHIER session saw
+    only the transactions where they were the cashier - and specifically
+    did NOT see the other user's sale.
+  - Asking `ReceiptService` to load a receipt ID that does not exist
+    (`R9999`) threw a `ReceiptException` instead of crashing.
+  - Appending one deliberately corrupt transaction block (bad date, bad
+    ITEM line) to `data/transactions.txt` and reloading: the corrupt
+    block was skipped with a console warning, and every other
+    transaction still loaded - confirming one bad record can't take down
+    the whole history.
+- A second standalone test loaded every real `.fxml` file in the project
+  (`login`, `dashboard`, `pos`, `inventory`, and the new `transactions`)
+  via `FXMLLoader` under a virtual display (Xvfb), the same way JavaFX
+  itself loads them at runtime. All 5 files loaded with no exceptions and
+  matched to their correct controller class, confirming every `fx:id`
+  and `onAction="#method"` in the new/changed FXML lines up with a real
+  `@FXML` field or method (this specifically caught nothing broken in
+  `dashboard.fxml`'s new "Transaction History" button or the new
+  `transactions.fxml` file).
+- These standalone tests are throwaway sandbox tools, not part of the
+  project - they live outside `src/`, so nothing was added to the actual
+  Maven project by this verification step.
+
+Please still run `mvn clean javafx:run` in IntelliJ to see the receipt
+popup and the new Transaction History screen in action, and report back
+anything odd.
 
 ## Development Rule
 

@@ -19,6 +19,7 @@
             </padding>
             <Button fx:id="inventoryButton" text="Inventory" onAction="#handleOpenInventory"/>
             <Button text="Point of Sale" onAction="#handleOpenPOS"/>
+            <Button text="Transaction History" onAction="#handleOpenTransactions"/>
             <Button text="Logout" onAction="#handleLogout"/>
         </HBox>
     </top>

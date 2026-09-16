@@ -17,11 +17,15 @@ import com.inventory.model.payment.CashPayment;
 import com.inventory.model.payment.Payment;
 import com.inventory.model.payment.QRPayment;
 import com.inventory.repository.ProductFileRepository;
+import com.inventory.repository.ReceiptFileRepository;
 import com.inventory.repository.TransactionFileRepository;
 import com.inventory.service.CheckoutService;
 import com.inventory.service.InventoryService;
 import com.inventory.service.ProductService;
+import com.inventory.service.ReceiptService;
 import com.inventory.service.TaxCalculator;
+import com.inventory.exception.ReceiptException;
+import com.inventory.util.ReceiptDialog;
 
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -138,12 +142,18 @@ public class POSController {
     // this controller never has to touch File I/O directly.
     private final TransactionFileRepository transactionFileRepository = new TransactionFileRepository();
 
+    // Part 6B: handles all reading/writing of receipt files under
+    // data/receipts/, and building the receipt's text layout - again,
+    // this controller never touches a file or formats a receipt itself.
+    private final ReceiptFileRepository receiptFileRepository = new ReceiptFileRepository();
+    private final ReceiptService receiptService = new ReceiptService(receiptFileRepository);
+
     // The store's tax rate lives in exactly ONE place. To change the tax
     // rate for the whole application, change this one number.
     private final TaxCalculator taxCalculator = new TaxCalculator(0.10); // 10%
 
-    private final CheckoutService checkoutService =
-            new CheckoutService(productService, inventoryService, taxCalculator, transactionFileRepository);
+    private final CheckoutService checkoutService = new CheckoutService(
+            productService, inventoryService, taxCalculator, transactionFileRepository, receiptService);
 
     // The cart for the CURRENT sale. A new POSController (and therefore a
     // new, empty Cart) is created each time the POS screen is opened.
@@ -450,13 +460,34 @@ public class POSController {
             Transaction transaction = checkoutService.checkout(cart, discount, payment);
 
             showCheckoutSuccess(transaction);
+            showReceipt(transaction);
             resetCheckoutForm();
             refreshProducts();  // stock changed - reload the product table
             refreshCartView();  // cart is now empty
 
         } catch (InvalidCartOperationException | InsufficientStockException
-                | InvalidDiscountException | PaymentException e) {
+                | InvalidDiscountException | PaymentException | ReceiptException e) {
             showError(e.getMessage());
+        }
+    }
+
+    /**
+     * Loads the receipt that was just saved for this transaction and
+     * shows it in a simple popup so the cashier can read it right away.
+     *
+     * This re-reads the receipt from disk (via ReceiptService) instead of
+     * keeping the text around in memory, which doubles as a quick check
+     * that the receipt really was saved correctly. If, for some reason,
+     * it cannot be read back (see ReceiptException), the sale itself is
+     * NOT undone - the transaction and stock changes already happened -
+     * the cashier just sees a friendly error instead of the receipt text.
+     */
+    private void showReceipt(Transaction transaction) {
+        try {
+            String receiptText = receiptService.loadReceiptText(transaction.getReceiptId());
+            ReceiptDialog.show("Receipt " + transaction.getReceiptId(), receiptText);
+        } catch (ReceiptException e) {
+            showError("The sale was completed, but the receipt could not be displayed: " + e.getMessage());
         }
     }
 

@@ -63,6 +63,23 @@ public class DashboardController {
     }
 
     /**
+     * Called automatically when the "Transaction History" button is
+     * clicked (linked via onAction="#handleOpenTransactions" in
+     * dashboard.fxml). Both ADMIN and CASHIER can open this screen -
+     * TransactionController itself decides which transactions each role
+     * is actually allowed to SEE (all of them for ADMIN, only their own
+     * for CASHIER).
+     */
+    @FXML
+    private void handleOpenTransactions() {
+        try {
+            Main.switchScene("view/transactions.fxml");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Called automatically when the "Logout" button is clicked
      * (linked via onAction="#handleLogout" in dashboard.fxml).
      */

@@ -30,6 +30,11 @@ import java.util.List;
  * payment.processPayment() without needing to know (or care) whether that
  * Payment is really a CashPayment, CardPayment, or QRPayment - each one
  * handles that call in its own way.
+ *
+ * Part 6B note: after a Transaction is created and saved, CheckoutService
+ * now also asks ReceiptService to build and save a Receipt for that same
+ * sale, using the same "hand it off to a service" pattern used for
+ * everything else in this class.
  */
 public class CheckoutService {
 
@@ -37,13 +42,16 @@ public class CheckoutService {
     private final InventoryService inventoryService;
     private final TaxCalculator taxCalculator;
     private final TransactionFileRepository transactionFileRepository;
+    private final ReceiptService receiptService;
 
     public CheckoutService(ProductService productService, InventoryService inventoryService,
-                            TaxCalculator taxCalculator, TransactionFileRepository transactionFileRepository) {
+                            TaxCalculator taxCalculator, TransactionFileRepository transactionFileRepository,
+                            ReceiptService receiptService) {
         this.productService = productService;
         this.inventoryService = inventoryService;
         this.taxCalculator = taxCalculator;
         this.transactionFileRepository = transactionFileRepository;
+        this.receiptService = receiptService;
     }
 
     /**
@@ -69,14 +77,25 @@ public class CheckoutService {
      *   2. Validate every item still has enough stock right now.
      *   3-6. Calculate subtotal, discount, tax, and the final total.
      *   7. Process the payment (Cash / Card / QR each decide this differently).
-     *   8. ONLY if payment succeeds: deduct stock for every item.
-     *   9. Build a Transaction object describing what just happened.
-     *   10. Save the transaction to data/transactions.txt so it survives a restart.
-     *   11. Clear the cart, ready for the next customer.
+     *   8. Build a Transaction object describing what just happened.
+     *   9. Save the transaction to data/transactions.txt so it survives a restart.
+     *   10. Generate and save a Receipt for this transaction.
+     *   11. ONLY if payment succeeded: deduct stock for every item.
+     *   12. Clear the cart, ready for the next customer.
+     *
+     * Note on ordering: the transaction's receiptId is decided BEFORE the
+     * Transaction object is built (step 8), because Transaction saves its
+     * receiptId as part of its own line in transactions.txt (see
+     * Transaction.toFileLines()) - the ID has to already exist to be
+     * written down. Payment is still always processed first: if it
+     * fails, an exception is thrown immediately and nothing below this
+     * point ever runs, so a failed payment never creates a transaction
+     * or a receipt, and never touches stock.
      *
      * @throws InvalidCartOperationException if the cart is empty
      * @throws InsufficientStockException    if any item no longer has enough stock
      * @throws com.inventory.exception.PaymentException if the payment is invalid or fails
+     * @throws com.inventory.exception.ReceiptException  if the receipt could not be saved
      */
     public Transaction checkout(Cart cart, Discount discount, Payment payment) {
         if (cart.isEmpty()) {
@@ -100,26 +119,32 @@ public class CheckoutService {
         CheckoutTotals totals = calculateTotals(cart, discount);
 
         // Step 7: process payment. If this throws (e.g. insufficient cash),
-        // execution stops right here, so stock is never touched below.
+        // execution stops right here - no transaction, no receipt, and no
+        // stock change ever happens for a failed payment.
         payment.processPayment();
 
-        // Step 8: payment succeeded - NOW, and only now, deduct stock.
+        // Step 8: payment succeeded - build a record of the completed
+        // sale, giving it a fresh unique transaction ID and receipt ID,
+        // and remembering who was logged in as the cashier.
+        String transactionId = transactionFileRepository.generateNextTransactionId();
+        String receiptId = receiptService.generateReceiptId();
+        String cashier = Session.getCurrentUsername();
+        Transaction transaction = new Transaction(transactionId, cashier, items, totals.getSubtotal(),
+                totals.getDiscountAmount(), totals.getTaxAmount(), totals.getTotal(), payment, receiptId);
+
+        // Step 9: persist the transaction immediately, so it survives
+        // an application restart even if nothing else happens after this.
+        transactionFileRepository.saveTransaction(transaction);
+
+        // Step 10: generate and save the printable receipt for this sale.
+        receiptService.generateAndSaveReceipt(transaction);
+
+        // Step 11: only now deduct stock - the sale is fully recorded.
         for (CartItem item : items) {
             inventoryService.stockOut(item.getProduct().getId(), item.getQuantity());
         }
 
-        // Step 9: build a record of the completed sale, giving it a fresh
-        // unique ID and remembering who was logged in as the cashier.
-        String transactionId = transactionFileRepository.generateNextTransactionId();
-        String cashier = Session.getCurrentUsername();
-        Transaction transaction = new Transaction(transactionId, cashier, items, totals.getSubtotal(),
-                totals.getDiscountAmount(), totals.getTaxAmount(), totals.getTotal(), payment);
-
-        // Step 10: persist the transaction immediately, so it survives
-        // an application restart even if nothing else happens after this.
-        transactionFileRepository.saveTransaction(transaction);
-
-        // Step 11: start fresh for the next sale.
+        // Step 12: start fresh for the next sale.
         cart.clear();
 
         return transaction;
