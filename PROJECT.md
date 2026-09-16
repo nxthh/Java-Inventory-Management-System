@@ -2,9 +2,65 @@
 
 ## Current Status
 
-Parts 1, 2, 3, 4, 5, 6A, 6B, and 7 are complete (Parts 4, 5, and 6B were
-verified with a real compiler and a real JavaFX runtime; Part 7 could
-only be verified by hand-review - see the Testing Notes below for why).
+Parts 1, 2, 3, 4, 5, 6A, 6B, 7, and 8 (Final Integration) are complete
+(Parts 4, 5, and 6B were verified with a real compiler and a real
+JavaFX runtime; Parts 7 and 8 could only be verified by hand-review -
+see the Testing Notes below for why).
+
+- **Part 8 - Final Integration (real login, File I/O hardening, CSS):**
+  - **Real, file-based login with roles** - the single biggest gap found
+    during the final audit. The Login screen previously only let the
+    user pick a Role from a dropdown; there was no User account, no
+    password check, and no `users.txt`. Added:
+    - `User` (`model`, abstract) - the shared parent of `Admin` and
+      `Cashier`, holding `username`/`password` and an abstract
+      `getRole()`. This mirrors the existing `Payment` ->
+      `CashPayment`/`CardPayment`/`QRPayment` inheritance pattern
+      exactly, just for accounts instead of payments.
+    - `Admin` and `Cashier` (`model`) - the two concrete subclasses.
+    - `UserFileRepository` (`repository`) - all reading/writing of
+      `data/users.txt`, following the exact same shape as
+      `ProductFileRepository` (auto-creates the file with two default
+      accounts if missing, skips a corrupted line instead of crashing).
+    - `AuthService` (`service`) - validates the username/password fields
+      aren't empty, looks up the account, and checks the password.
+      Deliberately throws the SAME message ("Invalid username or
+      password.") whether the username doesn't exist or the password is
+      wrong, so a failed login never reveals which half was incorrect.
+    - `InvalidLoginException` (`exception`) - follows the same small
+      RuntimeException pattern as every other exception in the project.
+    - `LoginController` and `login.fxml` were rewritten: the Role
+      dropdown is gone; the username/password fields now go through
+      `AuthService.login()`, and a successful login calls the new
+      `Session.login(User)` helper.
+    - `Session` gained ONE new method, `login(User)`, which just calls
+      the two setters (`setCurrentRole`/`setCurrentUsername`) that
+      already existed. Every other screen (`DashboardController`,
+      `POSController`, `TransactionController`,
+      `TransactionService`, `ReportService`, `CheckoutService`) keeps
+      reading `Session.getCurrentRole()` / `Session.isAdmin()` /
+      `Session.getCurrentUsername()` exactly as before - NONE of those
+      files needed to change.
+  - **Default accounts** (see also section B further down): `admin` /
+    `admin123` (Admin role) and `cashier` / `cashier123` (Cashier role).
+    Pre-seeded into `data/users.txt`; `UserFileRepository` also
+    auto-creates the same two accounts if the file is ever deleted.
+  - **File I/O robustness fix**: `ProductFileRepository.loadAll()` used
+    to let one damaged line in `data/products.txt` (e.g. a missing
+    field after a manual edit) throw an uncaught exception and crash
+    the Inventory screen. It now skips that one line with a console
+    warning and keeps loading the rest, the same way
+    `TransactionFileRepository` already handled a corrupted transaction
+    block. `UserFileRepository.loadAll()` was written with this same
+    protection from the start.
+  - **CSS theme**: `style.css` (`src/main/resources/com/inventory/view/`)
+    is new - a single, simple theme (readable buttons, striped/readable
+    tables, consistent form field borders, a light background) applied
+    to EVERY screen from one place, `Main.switchScene()`, instead of
+    being repeated in six different `.fxml` files.
+  - No existing feature, file format, or class was removed or renamed.
+    Parts 1-7 were re-verified by hand (see Part 8 Testing Notes) to
+    confirm nothing broke.
 
 - **Part 7 - Dashboard and Reports:**
   - `ReportService` (`service`): calculates every number shown on the
@@ -180,17 +236,22 @@ only be verified by hand-review - see the Testing Notes below for why).
 
 ## Current Phase
 
-Part 7 completed: a Dashboard with live summary cards, and an ADMIN-only
-Reports screen with Inventory / Sales / Low Stock report tabs plus a
-simple date-range filter on the Sales Report.
+Part 8 (Final Integration) completed: a real, file-based username/password
+login with Admin/Cashier roles (`User`/`Admin`/`Cashier`, `UserFileRepository`,
+`AuthService`), a File I/O robustness fix in `ProductFileRepository`, and a
+shared `style.css` theme applied to every screen.
 
 Explicitly NOT built yet (by design, no such request so far): reports
 broken down by individual product or by cashier, exporting a report to
 a file (e.g. CSV/PDF), charts/graphs of any kind, editing or voiding a
 past transaction, printing a receipt to an actual printer (it is only
-displayed on screen and saved as a `.txt` file), and a real
-User/authentication system (Session/Role dropdown is still the simple
-stand-in used since Part 3).
+displayed on screen and saved as a `.txt` file), password hashing
+(passwords are stored in plain text in `data/users.txt`, the same simple
+style as every other data file in this project - acceptable for a
+student project, NOT for a real production system), and an admin screen
+for creating/editing/deleting user accounts through the UI (accounts are
+managed by editing `data/users.txt` directly, the same way products
+started out before the Inventory screen existed).
 
 ## Important Rules
 
@@ -463,6 +524,86 @@ renamed, only added to):
    behave exactly as they did before this phase.
 
 Please report back anything odd so it can be fixed before continuing.
+
+## Part 8 Testing Notes
+
+Like Part 7, this sandbox had no working `javac`/`mvn` and no network
+access (`apt-get install openjdk-21-jdk-headless` again failed with
+`403 Forbidden`), so Part 8 was verified by careful hand-review instead
+of a live compile:
+
+- Every file's `package` declaration was checked against its actual
+  folder (e.g. `model/User.java` declares `package com.inventory.model`).
+- Every `import com.inventory.*` statement across all 46 source files was
+  checked against a real file at the matching path - all resolved.
+- Brace balance (`{` vs `}`) was checked in every source file.
+- `login.fxml`'s `fx:id`s (`usernameField`, `passwordField`,
+  `statusLabel`) and `onAction="#handleLogin"` were checked one-by-one
+  against `LoginController`'s `@FXML` fields/methods - the removed
+  `roleComboBox` was confirmed gone from BOTH the FXML and the
+  controller (a `grep` across the whole `src/` tree found zero
+  remaining references).
+- The full login round-trip was traced by hand against the real
+  `data/users.txt` this phase creates: `User.fromFileLine("admin,admin123,ADMIN")`
+  splits into `["admin","admin123","ADMIN"]`, `Role.valueOf("ADMIN")`
+  succeeds, and the `switch` returns `new Admin("admin","admin123")`;
+  `AuthService.login("admin","admin123")` then finds that user and
+  `checkPassword("admin123")` returns true - a successful login. Trying
+  `AuthService.login("admin","wrong")` reaches the SAME
+  `"Invalid username or password."` `InvalidLoginException` as trying a
+  username that does not exist at all, by design (see Part 8 above).
+- Confirmed EVERY method already called on `Session` from other files
+  (`getCurrentRole`, `isAdmin`, `getCurrentUsername`,
+  `setCurrentRole`, `setCurrentUsername`) still exists with the same
+  signature - only one new method, `login(User)`, was added, and it is
+  called from exactly one place (`LoginController`).
+- Re-checked, line by line, that `DashboardController`, `InventoryController`,
+  `POSController`, `TransactionController`, `TransactionService`,
+  `ReportService`, and `CheckoutService` were NOT modified by this phase
+  at all (only `LoginController`, `login.fxml`, `Session`, `Main`, and
+  `ProductFileRepository` were touched) - confirming Parts 1-7 could not
+  have regressed.
+- All brand-new files created purely with `create_file` (not edited from
+  existing content) were converted from LF to CRLF line endings to match
+  every other file already in the repository - a purely cosmetic
+  consistency check, not a compile concern.
+
+Because this sandbox could not run the app, **please run
+`mvn clean javafx:run` in IntelliJ** and check the following before
+trusting this phase:
+
+1. **Login works** - `admin` / `admin123` logs in as Admin (Inventory
+   and Reports buttons enabled on the Dashboard); `cashier` / `cashier123`
+   logs in as Cashier (those two buttons disabled/greyed out).
+2. **Invalid login is rejected cleanly** - a wrong password, an unknown
+   username, and empty fields each show a friendly Alert ("Invalid
+   username or password." / "Please enter a username." / "Please enter
+   a password.") instead of crashing, and the password field is cleared
+   after a SUCCESSFUL login (so it is not left sitting in the field).
+3. **CSS is visible** - buttons should be blue with white text (not the
+   default grey JavaFX look), table headers should have a light grey
+   background, and text fields should have a visible light border. This
+   should look consistent across Login, Dashboard, Inventory, POS,
+   Transactions, and Reports.
+4. **Persistence after restart** - close and reopen the app; confirm
+   `data/users.txt` still has exactly the accounts you left it with
+   (including any the app auto-created on first run), and that both
+   `admin`/`admin123` and `cashier`/`cashier123` still log in correctly.
+5. **File I/O hardening** - with the app closed, open `data/products.txt`
+   in a text editor and deliberately break one line (e.g. delete a
+   comma so it only has 4 fields instead of 6), save, then reopen the
+   app and go to Inventory. The screen should still load and show every
+   OTHER product normally, with a line like `Skipping invalid product
+   record: ...` printed to the IntelliJ console - it should NOT crash.
+   Undo your edit afterwards to restore the real sample data.
+6. **Everything from Parts 1-7 still works** - Inventory (add/edit/
+   delete, stock in/out, search/filter, low stock), POS (cart, checkout
+   with Cash/Card/QR, receipt popup), Transaction History (list, View
+   Details, View Receipt, ADMIN-sees-all vs CASHIER-sees-own), and the
+   Dashboard/Reports numbers should all behave exactly as they did
+   before this phase - none of their files were changed.
+
+Please report back anything odd so it can be fixed.
 
 ## Development Rule
 

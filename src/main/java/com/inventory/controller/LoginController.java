@@ -1,10 +1,14 @@
 package com.inventory.controller;
 
 import com.inventory.Main;
-import com.inventory.model.Role;
+import com.inventory.exception.InvalidLoginException;
+import com.inventory.model.User;
+import com.inventory.repository.UserFileRepository;
+import com.inventory.service.AuthService;
 import com.inventory.util.Session;
 import javafx.fxml.FXML;
-import javafx.scene.control.ComboBox;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
@@ -17,17 +21,20 @@ import java.io.IOException;
  * A "Controller" in the MVC (Model-View-Controller) pattern is responsible
  * for reacting to UI events (like a button click) and deciding what should
  * happen next. It should NOT contain File I/O or complex business rules -
- * those belong in Service and Repository classes, added in later phases.
+ * those belong in Service and Repository classes.
  *
- * Phase 1 note: There is no User class yet, so this controller does not
- * validate a username/password. It simply demonstrates navigating from the
- * Login screen to the Dashboard screen. Real authentication will be added
- * once the User/Admin/Cashier classes exist.
+ * OOP concept: LAYERED ARCHITECTURE.
+ * This controller only knows about JavaFX controls and what the person
+ * wants to do (log in). It does not know how accounts are stored (that is
+ * UserFileRepository) or how a login attempt is validated (that is
+ * AuthService). It simply reads the two text fields, hands them to
+ * AuthService.login(), and reacts to whether that succeeds or throws.
  *
- * Phase 3 note: A Role dropdown was added so the rest of the app (starting
- * with the Inventory screen) has a real Role to check permissions against,
- * via Session.setCurrentRole(). This is intentionally simple - it is NOT a
- * full login system, just enough to demonstrate Admin vs Cashier access.
+ * Real login: the username/password are checked against the accounts
+ * saved in data/users.txt via AuthService. A successful login returns a
+ * real User (an Admin or a Cashier) whose role is recorded in Session, so
+ * every other screen's Admin/Cashier permission checks keep working
+ * exactly as they did before real login existed.
  */
 public class LoginController {
 
@@ -38,20 +45,13 @@ public class LoginController {
     private PasswordField passwordField;
 
     @FXML
-    private ComboBox<Role> roleComboBox;
-
-    @FXML
     private Label statusLabel;
 
-    /**
-     * Called automatically when the screen first loads.
-     * Fills the Role dropdown with ADMIN and CASHIER, defaulting to ADMIN.
-     */
-    @FXML
-    private void initialize() {
-        roleComboBox.getItems().addAll(Role.ADMIN, Role.CASHIER);
-        roleComboBox.setValue(Role.ADMIN);
-    }
+    // The controller only talks to a service - never straight to the
+    // repository or straight to a file, same pattern as every other
+    // controller in this project.
+    private final UserFileRepository userFileRepository = new UserFileRepository();
+    private final AuthService authService = new AuthService(userFileRepository);
 
     /**
      * Called automatically when the "Login" button is clicked
@@ -59,22 +59,24 @@ public class LoginController {
      */
     @FXML
     private void handleLogin() {
+        statusLabel.setText("");
         try {
-            // Phase 1 placeholder: no credential checking yet.
-            // A later phase may replace this with a real login check using
-            // a UserService/UserRepository. For now we only remember which
-            // Role was selected, so the Dashboard/Inventory screens can
-            // enforce Admin vs Cashier permissions.
-            Role selectedRole = roleComboBox.getValue();
-            if (selectedRole == null) {
-                selectedRole = Role.ADMIN;
-            }
-            Session.setCurrentRole(selectedRole);
-            Session.setCurrentUsername(usernameField.getText());
-
+            User user = authService.login(usernameField.getText(), passwordField.getText());
+            Session.login(user);
+            passwordField.clear();
             Main.switchScene("view/dashboard.fxml");
+        } catch (InvalidLoginException e) {
+            showError(e.getMessage());
         } catch (IOException e) {
             statusLabel.setText("Unable to load dashboard screen.");
         }
+    }
+
+    private void showError(String message) {
+        statusLabel.setText(message);
+        Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
+        alert.setTitle("Login Failed");
+        alert.setHeaderText(null);
+        alert.showAndWait();
     }
 }

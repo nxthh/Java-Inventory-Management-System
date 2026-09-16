@@ -14,14 +14,17 @@ import java.io.IOException;
  * This is INHERITANCE - Main "is-a" Application and must implement
  * the start() method that JavaFX requires.
  *
- * Main's only job in this phase is to:
+ * Main's job is to:
  *   1. Start the JavaFX application.
  *   2. Show the Login screen first.
  *   3. Provide a simple way for controllers to switch scenes
- *      (Login -> Dashboard, Dashboard -> Login).
+ *      (Login -> Dashboard, Dashboard -> Inventory/POS/etc.), applying
+ *      the shared style.css to each one.
  *
- * Main does NOT contain business logic (like checking a username/password).
- * That will live in dedicated classes later (Phase 2), keeping this class small.
+ * Main does NOT contain business logic (like checking a username/password
+ * - that lives in AuthService) or File I/O (that lives in the repository
+ * classes). Keeping Main this small means the entry point of the whole
+ * application stays easy to read at a glance.
  */
 public class Main extends Application {
 
@@ -50,6 +53,13 @@ public class Main extends Application {
     public static void switchScene(String fxmlFile) throws IOException {
         FXMLLoader loader = new FXMLLoader(Main.class.getResource(fxmlFile));
         Scene scene = new Scene(loader.load());
+
+        // Applying the shared stylesheet here, in ONE place, means every
+        // screen gets the same look automatically - no .fxml file needs
+        // its own <stylesheets> line, and changing the theme never means
+        // hunting through six different files.
+        scene.getStylesheets().add(Main.class.getResource("view/style.css").toExternalForm());
+
         primaryStage.setScene(scene);
     }
 

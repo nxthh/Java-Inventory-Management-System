@@ -59,7 +59,16 @@ public class ProductFileRepository {
                 if (line.isEmpty()) {
                     continue; // skip blank lines
                 }
-                products.add(Product.fromFileLine(line));
+                try {
+                    products.add(Product.fromFileLine(line));
+                } catch (RuntimeException e) {
+                    // A single damaged line (missing field, bad number,
+                    // etc.) should not take down the whole product list -
+                    // skip it with a warning and keep loading the rest.
+                    // Same approach TransactionFileRepository already
+                    // uses for a corrupted transaction block.
+                    System.out.println("Skipping invalid product record: " + line + " (" + e.getMessage() + ")");
+                }
             }
         } catch (IOException e) {
             System.out.println("Could not read product file: " + e.getMessage());
