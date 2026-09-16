@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefWidth="820" prefHeight="600"
+            xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.inventory.controller.ReportsController">
+
+    <!-- ===================== TOP: title bar ===================== -->
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <padding>
+                <Insets top="10" right="15" bottom="10" left="15"/>
+            </padding>
+            <Button text="Back" onAction="#handleBack"/>
+            <Label text="Reports" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+        </HBox>
+    </top>
+
+    <!-- ===================== CENTER: report tabs ===================== -->
+    <center>
+        <TabPane tabClosingPolicy="UNAVAILABLE">
+            <BorderPane.margin>
+                <Insets top="0" right="15" bottom="15" left="15"/>
+            </BorderPane.margin>
+
+            <!-- ----- Inventory Report ----- -->
+            <Tab text="Inventory Report">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="0" bottom="0" left="0"/>
+                    </padding>
+
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Button text="Refresh" onAction="#handleRefreshInventoryReport"/>
+                        <Label fx:id="totalInventoryValueLabel" style="-fx-font-weight: bold;"/>
+                    </HBox>
+
+                    <TableView fx:id="inventoryTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="invProductColumn" text="Product" prefWidth="180"/>
+                            <TableColumn fx:id="invCategoryColumn" text="Category" prefWidth="100"/>
+                            <TableColumn fx:id="invPriceColumn" text="Price" prefWidth="90"/>
+                            <TableColumn fx:id="invQuantityColumn" text="Quantity" prefWidth="90"/>
+                            <TableColumn fx:id="invValueColumn" text="Inventory Value" prefWidth="130"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+
+            <!-- ----- Sales Report ----- -->
+            <Tab text="Sales Report">
+                <VBox spacing="15">
+                    <padding>
+                        <Insets top="15" right="15" bottom="15" left="15"/>
+                    </padding>
+
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label text="From:"/>
+                        <DatePicker fx:id="fromDatePicker" prefWidth="140"/>
+                        <Label text="To:"/>
+                        <DatePicker fx:id="toDatePicker" prefWidth="140"/>
+                        <Button text="Apply Filter" onAction="#handleApplyDateFilter"/>
+                        <Button text="Clear Filter" onAction="#handleClearDateFilter"/>
+                    </HBox>
+
+                    <VBox spacing="8" style="-fx-background-color: #f4f4f4; -fx-background-radius: 8; -fx-padding: 15;" maxWidth="320">
+                        <Label fx:id="totalTransactionsLabel" text="Total Transactions: 0" style="-fx-font-size: 14px;"/>
+                        <Label fx:id="totalRevenueLabel" text="Total Revenue: $0.00" style="-fx-font-size: 14px;"/>
+                        <Label fx:id="totalDiscountLabel" text="Total Discount: $0.00" style="-fx-font-size: 14px;"/>
+                        <Label fx:id="totalTaxLabel" text="Total Tax: $0.00" style="-fx-font-size: 14px;"/>
+                    </VBox>
+
+                    <Label fx:id="salesStatusLabel" wrapText="true" style="-fx-text-fill: #c0392b;"/>
+                </VBox>
+            </Tab>
+
+            <!-- ----- Low Stock Report ----- -->
+            <Tab text="Low Stock Report">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="0" bottom="0" left="0"/>
+                    </padding>
+
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Button text="Refresh" onAction="#handleRefreshLowStockReport"/>
+                    </HBox>
+
+                    <TableView fx:id="lowStockTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="lowStockProductColumn" text="Product" prefWidth="200"/>
+                            <TableColumn fx:id="lowStockQuantityColumn" text="Current Quantity" prefWidth="130"/>
+                            <TableColumn fx:id="lowStockMinColumn" text="Minimum Stock" prefWidth="130"/>
+                            <TableColumn fx:id="lowStockStatusColumn" text="Status" prefWidth="110"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+
+        </TabPane>
+    </center>
+
+</BorderPane>
