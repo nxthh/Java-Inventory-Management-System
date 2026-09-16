@@ -3,11 +3,24 @@ package com.inventory.controller;
 import com.inventory.Main;
 import com.inventory.exception.InsufficientStockException;
 import com.inventory.exception.InvalidCartOperationException;
+import com.inventory.exception.InvalidDiscountException;
+import com.inventory.exception.PaymentException;
 import com.inventory.model.Cart;
 import com.inventory.model.CartItem;
+import com.inventory.model.CheckoutTotals;
+import com.inventory.model.Discount;
+import com.inventory.model.PercentageDiscount;
 import com.inventory.model.Product;
+import com.inventory.model.Transaction;
+import com.inventory.model.payment.CardPayment;
+import com.inventory.model.payment.CashPayment;
+import com.inventory.model.payment.Payment;
+import com.inventory.model.payment.QRPayment;
 import com.inventory.repository.ProductFileRepository;
+import com.inventory.service.CheckoutService;
+import com.inventory.service.InventoryService;
 import com.inventory.service.ProductService;
+import com.inventory.service.TaxCalculator;
 
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -16,6 +29,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -95,10 +109,36 @@ public class POSController {
     @FXML
     private Label statusMessageLabel;
 
-    // The Controller talks only to ProductService for product lookups -
-    // never straight to the Repository or straight to a file.
+    // ----- Checkout section -----
+    @FXML
+    private TextField discountField;
+    @FXML
+    private Label discountAmountLabel;
+    @FXML
+    private Label taxAmountLabel;
+    @FXML
+    private Label totalLabel;
+    @FXML
+    private ComboBox<String> paymentMethodComboBox;
+    @FXML
+    private TextField amountPaidField;
+    @FXML
+    private Label changeLabel;
+    @FXML
+    private Button checkoutButton;
+
+    // The Controller talks only to services for product/stock/checkout
+    // work - never straight to a Repository or straight to a file.
     private final ProductFileRepository productFileRepository = new ProductFileRepository();
     private final ProductService productService = new ProductService(productFileRepository);
+    private final InventoryService inventoryService = new InventoryService(productFileRepository);
+
+    // The store's tax rate lives in exactly ONE place. To change the tax
+    // rate for the whole application, change this one number.
+    private final TaxCalculator taxCalculator = new TaxCalculator(0.10); // 10%
+
+    private final CheckoutService checkoutService =
+            new CheckoutService(productService, inventoryService, taxCalculator);
 
     // The cart for the CURRENT sale. A new POSController (and therefore a
     // new, empty Cart) is created each time the POS screen is opened.
@@ -124,8 +164,10 @@ public class POSController {
         setupProductSelectionListener();
         setupCartSelectionListener();
         setupSearchListener();
+        setupPaymentMethodComboBox();
+        setupCheckoutListeners();
         refreshProducts();
-        refreshCartView();
+        refreshCartView(); // also triggers the first recalculateTotals()
         updateActionButtonsState();
     }
 
@@ -181,6 +223,36 @@ public class POSController {
     }
 
     /**
+     * Fills the Payment ComboBox with the three supported methods and
+     * reacts when the cashier changes their selection: the Amount Paid
+     * field only makes sense for Cash, so it is disabled (and cleared)
+     * for Card/QR.
+     */
+    private void setupPaymentMethodComboBox() {
+        paymentMethodComboBox.setItems(FXCollections.observableArrayList("Cash", "Card", "QR"));
+        paymentMethodComboBox.getSelectionModel().select("Cash");
+
+        paymentMethodComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            boolean isCash = "Cash".equals(newVal);
+            amountPaidField.setDisable(!isCash);
+            if (!isCash) {
+                amountPaidField.clear();
+            }
+            recalculateTotals();
+        });
+    }
+
+    /**
+     * As the cashier types a discount or an amount paid, the Discount/
+     * Tax/Total/Change labels should update live, without needing to
+     * click anything first.
+     */
+    private void setupCheckoutListeners() {
+        discountField.textProperty().addListener((obs, oldVal, newVal) -> recalculateTotals());
+        amountPaidField.textProperty().addListener((obs, oldVal, newVal) -> recalculateTotals());
+    }
+
+    /**
      * Update/Remove only make sense once something is actually selected.
      */
     private void updateActionButtonsState() {
@@ -222,6 +294,41 @@ public class POSController {
     private void refreshCartView() {
         cartTable.setItems(FXCollections.observableArrayList(cart.getItems()));
         subtotalLabel.setText("Subtotal: $" + String.format("%.2f", cart.getSubtotal()));
+        checkoutButton.setDisable(cart.isEmpty());
+        recalculateTotals();
+    }
+
+    /**
+     * Recomputes Discount/Tax/Total/Change from the cart's current
+     * contents plus whatever the cashier has typed/selected on the
+     * checkout panel, and refreshes those labels. This is only a PREVIEW
+     * - it never touches stock or a payment, it just shows the cashier
+     * what checkout would currently charge.
+     */
+    private void recalculateTotals() {
+        double discountPercent;
+        try {
+            discountPercent = parseDiscountPercent();
+        } catch (InvalidDiscountException e) {
+            // Still typing (e.g. field temporarily empty or "-") - just
+            // preview with no discount instead of showing an alert.
+            discountPercent = 0;
+        }
+
+        Discount discount = new PercentageDiscount(discountPercent);
+        CheckoutTotals totals = checkoutService.calculateTotals(cart, discount);
+
+        discountAmountLabel.setText("Discount: $" + String.format("%.2f", totals.getDiscountAmount()));
+        taxAmountLabel.setText("Tax: $" + String.format("%.2f", totals.getTaxAmount()));
+        totalLabel.setText("TOTAL: $" + String.format("%.2f", totals.getTotal()));
+
+        if ("Cash".equals(paymentMethodComboBox.getValue())) {
+            double amountPaid = parseAmountPaidLenient();
+            double change = Math.max(amountPaid - totals.getTotal(), 0);
+            changeLabel.setText("Change: $" + String.format("%.2f", change));
+        } else {
+            changeLabel.setText("Change: $0.00");
+        }
     }
 
     // ===================== Button actions =====================
@@ -308,6 +415,154 @@ public class POSController {
             refreshCartView();
             showSuccess("Cart cleared.");
         }
+    }
+
+    /**
+     * Runs the full checkout process for the current cart:
+     * builds a Discount and a Payment from what the cashier entered, then
+     * hands both to CheckoutService, which validates everything, takes
+     * the payment, deducts stock, and returns a Transaction. Any problem
+     * along the way (empty cart, insufficient stock, bad discount, bad
+     * payment amount, insufficient cash) is shown as an Alert and stops
+     * the checkout - stock and the cart are left untouched.
+     */
+    @FXML
+    private void handleCheckout() {
+        try {
+            if (cart.isEmpty()) {
+                showError("The cart is empty. Add a product before checking out.");
+                return;
+            }
+
+            double discountPercent = parseDiscountPercent();
+            Discount discount = new PercentageDiscount(discountPercent);
+
+            CheckoutTotals totals = checkoutService.calculateTotals(cart, discount);
+
+            String method = paymentMethodComboBox.getValue();
+            Payment payment = buildPayment(method, totals.getTotal());
+
+            Transaction transaction = checkoutService.checkout(cart, discount, payment);
+
+            showCheckoutSuccess(transaction);
+            resetCheckoutForm();
+            refreshProducts();  // stock changed - reload the product table
+            refreshCartView();  // cart is now empty
+
+        } catch (InvalidCartOperationException | InsufficientStockException
+                | InvalidDiscountException | PaymentException e) {
+            showError(e.getMessage());
+        }
+    }
+
+    /**
+     * Creates the right kind of Payment for the selected method.
+     *
+     * OOP concept: POLYMORPHISM. The return type is the general "Payment"
+     * type - the caller (handleCheckout) never needs an if/else per
+     * payment type after this point; it just calls payment.processPayment().
+     */
+    private Payment buildPayment(String method, double total) {
+        if ("Cash".equals(method)) {
+            double amountPaid = parseAmountPaid();
+            return new CashPayment(total, amountPaid);
+        } else if ("Card".equals(method)) {
+            return new CardPayment(total);
+        } else {
+            return new QRPayment(total);
+        }
+    }
+
+    /**
+     * Parses the discount field strictly - used right before checkout,
+     * where an invalid value should stop checkout with a clear message.
+     *
+     * @throws InvalidDiscountException if the text is missing, not a
+     *                                   number, or outside 0-100
+     */
+    private double parseDiscountPercent() {
+        String text = discountField.getText() == null ? "" : discountField.getText().trim();
+        if (text.isEmpty()) {
+            return 0;
+        }
+        double value;
+        try {
+            value = Double.parseDouble(text);
+        } catch (NumberFormatException e) {
+            throw new InvalidDiscountException("Discount must be a number.");
+        }
+        if (value < 0 || value > 100) {
+            throw new InvalidDiscountException("Discount must be between 0 and 100.");
+        }
+        return value;
+    }
+
+    /**
+     * Parses the amount paid field strictly - used right before checkout.
+     *
+     * @throws PaymentException if the text is missing, not a number, or negative
+     */
+    private double parseAmountPaid() {
+        String text = amountPaidField.getText() == null ? "" : amountPaidField.getText().trim();
+        if (text.isEmpty()) {
+            throw new PaymentException("Please enter the amount paid.");
+        }
+        double amount;
+        try {
+            amount = Double.parseDouble(text);
+        } catch (NumberFormatException e) {
+            throw new PaymentException("Amount paid must be a valid number.");
+        }
+        if (amount < 0) {
+            throw new PaymentException("Amount paid cannot be negative.");
+        }
+        return amount;
+    }
+
+    /**
+     * A forgiving version of parseAmountPaid() used only for the LIVE
+     * Change preview: while the cashier is still typing, the field may be
+     * temporarily empty or invalid, and that should not show an alert -
+     * it should just preview as if $0.00 had been paid so far.
+     */
+    private double parseAmountPaidLenient() {
+        try {
+            return parseAmountPaid();
+        } catch (PaymentException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Shows a summary Alert confirming the sale completed successfully.
+     */
+    private void showCheckoutSuccess(Transaction transaction) {
+        StringBuilder message = new StringBuilder();
+        message.append(String.format("Subtotal: $%.2f%n", transaction.getSubtotal()));
+        message.append(String.format("Discount: $%.2f%n", transaction.getDiscountAmount()));
+        message.append(String.format("Tax: $%.2f%n", transaction.getTaxAmount()));
+        message.append(String.format("Total: $%.2f%n", transaction.getTotal()));
+        message.append(String.format("Payment Method: %s%n", transaction.getPayment().getMethodName()));
+        if (transaction.getPayment() instanceof CashPayment cashPayment) {
+            message.append(String.format("Amount Paid: $%.2f%n", cashPayment.getAmountPaid()));
+        }
+        message.append(String.format("Change: $%.2f", transaction.getPayment().getChange()));
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message.toString(), ButtonType.OK);
+        alert.setTitle("Checkout Complete");
+        alert.setHeaderText("Sale completed successfully");
+        alert.showAndWait();
+    }
+
+    /**
+     * Resets the checkout panel back to its defaults after a successful
+     * sale, ready for the next customer.
+     */
+    private void resetCheckoutForm() {
+        discountField.setText("0");
+        paymentMethodComboBox.getSelectionModel().select("Cash");
+        amountPaidField.setDisable(false);
+        amountPaidField.clear();
     }
 
     @FXML

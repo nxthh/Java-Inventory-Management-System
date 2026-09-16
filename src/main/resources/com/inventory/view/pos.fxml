@@ -2,7 +2,9 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
@@ -11,7 +13,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane prefWidth="1050" prefHeight="620"
+<BorderPane prefWidth="1100" prefHeight="760"
             xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.inventory.controller.POSController">
@@ -66,11 +68,16 @@
                 </HBox>
             </VBox>
 
-            <!-- ===== RIGHT: cart ===== -->
+            <!-- ===== RIGHT: cart + checkout ===== -->
+            <ScrollPane fitToWidth="true" prefWidth="440" HBox.hgrow="NEVER">
             <VBox spacing="10" prefWidth="420">
+                <padding>
+                    <Insets top="0" right="10" bottom="10" left="0"/>
+                </padding>
+
                 <Label text="Cart" style="-fx-font-weight: bold;"/>
 
-                <TableView fx:id="cartTable" VBox.vgrow="ALWAYS">
+                <TableView fx:id="cartTable" prefHeight="220">
                     <columns>
                         <TableColumn fx:id="cartProductColumn" text="Product" prefWidth="150"/>
                         <TableColumn fx:id="cartQuantityColumn" text="Quantity" prefWidth="70"/>
@@ -94,10 +101,41 @@
 
                 <Label fx:id="subtotalLabel" text="Subtotal: $0.00" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
 
+                <!-- ===== Checkout: discount / tax / total breakdown ===== -->
+                <Label text="Checkout" style="-fx-font-weight: bold;"/>
+
+                <HBox alignment="CENTER_LEFT" spacing="8">
+                    <Label text="Discount (%):"/>
+                    <TextField fx:id="discountField" text="0" prefWidth="70"/>
+                </HBox>
+
+                <Label fx:id="discountAmountLabel" text="Discount: $0.00"/>
+                <Label fx:id="taxAmountLabel" text="Tax: $0.00"/>
+                <Label fx:id="totalLabel" text="TOTAL: $0.00" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+                <Separator/>
+
+                <!-- ===== Checkout: payment ===== -->
+                <HBox alignment="CENTER_LEFT" spacing="8">
+                    <Label text="Payment:"/>
+                    <ComboBox fx:id="paymentMethodComboBox" prefWidth="120"/>
+                </HBox>
+
+                <HBox alignment="CENTER_LEFT" spacing="8">
+                    <Label text="Amount Paid:"/>
+                    <TextField fx:id="amountPaidField" prefWidth="90"/>
+                </HBox>
+
+                <Label fx:id="changeLabel" text="Change: $0.00" style="-fx-font-weight: bold;"/>
+
+                <Button fx:id="checkoutButton" text="CHECKOUT" onAction="#handleCheckout"
+                        style="-fx-font-weight: bold; -fx-font-size: 14px;" maxWidth="Infinity"/>
+
                 <Separator/>
 
                 <Label fx:id="statusMessageLabel" wrapText="true" style="-fx-text-fill: #2e7d32;"/>
             </VBox>
+            </ScrollPane>
         </HBox>
     </center>
 
