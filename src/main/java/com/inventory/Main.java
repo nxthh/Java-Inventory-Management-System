@@ -3,6 +3,8 @@ package com.inventory;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -51,16 +53,48 @@ public class Main extends Application {
      * @param fxmlFile path to the FXML file, relative to the com.inventory package
      */
     public static void switchScene(String fxmlFile) throws IOException {
-        FXMLLoader loader = new FXMLLoader(Main.class.getResource(fxmlFile));
-        Scene scene = new Scene(loader.load());
+        try {
+            FXMLLoader loader = new FXMLLoader(Main.class.getResource(fxmlFile));
+            Scene scene = new Scene(loader.load());
 
-        // Applying the shared stylesheet here, in ONE place, means every
-        // screen gets the same look automatically - no .fxml file needs
-        // its own <stylesheets> line, and changing the theme never means
-        // hunting through six different files.
-        scene.getStylesheets().add(Main.class.getResource("view/style.css").toExternalForm());
+            // Applying the shared stylesheet here, in ONE place, means every
+            // screen gets the same look automatically - no .fxml file needs
+            // its own <stylesheets> line, and changing the theme never means
+            // hunting through six different files.
+            scene.getStylesheets().add(Main.class.getResource("view/style.css").toExternalForm());
 
-        primaryStage.setScene(scene);
+            primaryStage.setScene(scene);
+        } catch (IOException e) {
+            // Before this try/catch, a failure here (e.g. an fx:id typo in
+            // the FXML, or an exception thrown inside a controller's
+            // initialize() method) was only printed to the IntelliJ
+            // console via a caller's e.printStackTrace() - the screen the
+            // user clicked on simply never appeared, which looks exactly
+            // like "the button does nothing". Showing an Alert here means
+            // any future problem like that is immediately visible on
+            // screen instead of hiding in the console.
+            showLoadError(fxmlFile, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Shows a plain error dialog explaining that a screen could not be
+     * opened, including the real cause (e.g. "NullPointerException").
+     * Kept here, in ONE place, so every screen switch benefits from the
+     * same friendly error handling without each controller needing its
+     * own copy of this code.
+     */
+    private static void showLoadError(String fxmlFile, Exception e) {
+        Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+        Alert alert = new Alert(Alert.AlertType.ERROR,
+                "Could not open this screen (" + fxmlFile + ").\n\n"
+                        + cause.getClass().getSimpleName()
+                        + (cause.getMessage() != null ? ": " + cause.getMessage() : ""),
+                ButtonType.OK);
+        alert.setTitle("Navigation Error");
+        alert.setHeaderText(null);
+        alert.showAndWait();
     }
 
     public static void main(String[] args) {

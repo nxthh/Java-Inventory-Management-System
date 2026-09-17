@@ -22,6 +22,13 @@ import java.io.IOException;
  * Phase 7 adds the summary "cards" (Total Products, Inventory Items,
  * Low Stock, Transactions, Total Revenue) and the Reports button.
  *
+ * Layout note: the navigation buttons used to sit in a row across the
+ * top of the screen. dashboard.fxml now places them in a sidebar on the
+ * left instead (top title bar + left sidebar + main content, like a
+ * typical admin dashboard). Only the FXML layout changed - every
+ * onAction handler below is exactly the same method it always was, so
+ * none of this controller's logic needed to change for the new look.
+ *
  * OOP concept: this controller does not know HOW inventory or sales
  * numbers are calculated - it only asks ReportService for the finished
  * numbers and puts them into Labels. All of the counting/summing logic
@@ -34,6 +41,9 @@ public class DashboardController {
     private Button inventoryButton;
     @FXML
     private Button reportsButton;
+
+    @FXML
+    private Label currentUserLabel;
 
     @FXML
     private Label totalProductsLabel;
@@ -71,6 +81,7 @@ public class DashboardController {
     private void initialize() {
         inventoryButton.setDisable(!Session.isAdmin());
         reportsButton.setDisable(!Session.isAdmin());
+        currentUserLabel.setText(Session.getCurrentUsername() + " (" + Session.getCurrentRole() + ")");
         refreshSummary();
     }
 

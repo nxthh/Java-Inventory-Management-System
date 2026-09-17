@@ -135,3 +135,65 @@
 .separator .line {
     -fx-border-color: #e0e0e0;
 }
+
+/* ===================== App shell: title bar + sidebar (Dashboard) =====================
+   These rules are declared AFTER the generic .button rules above on
+   purpose: a Button on the sidebar has BOTH styleClass="button" (added
+   automatically by JavaFX) and styleClass="sidebar-button" (added in
+   dashboard.fxml). When two class selectors of the same specificity set
+   the same property, the one written LATER in the file wins - so putting
+   .sidebar-button below .button here is what makes the sidebar look
+   different from every other button in the app, without needing a whole
+   separate stylesheet. */
+
+.app-titlebar {
+    -fx-background-color: #0d47a1;
+}
+
+.app-title-label {
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.app-user-label {
+    -fx-text-fill: #bbdefb;
+    -fx-font-size: 12px;
+}
+
+.sidebar {
+    -fx-background-color: #1565c0;
+}
+
+.sidebar-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-font-weight: normal;
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-radius: 4;
+    -fx-padding: 10 14 10 14;
+}
+
+.sidebar-button:hover {
+    -fx-background-color: #1976d2;
+}
+
+.sidebar-button:disabled {
+    -fx-background-color: transparent;
+    -fx-text-fill: #7fa8d9;
+}
+
+/* Marks the "Dashboard" button as the currently active screen. */
+.sidebar-button-active {
+    -fx-background-color: #0d47a1;
+    -fx-font-weight: bold;
+}
+
+.sidebar-button-logout {
+    -fx-text-fill: #ffcdd2;
+}
+
+.sidebar-button-logout:hover {
+    -fx-background-color: #c62828;
+    -fx-text-fill: white;
+}

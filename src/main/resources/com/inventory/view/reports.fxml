@@ -35,7 +35,7 @@
                 <Insets top="0" right="15" bottom="15" left="15"/>
             </BorderPane.margin>
 
-            <!-- ----- Inventory Report ----- -->
+            <!-- ===== Inventory Report ===== -->
             <Tab text="Inventory Report">
                 <VBox spacing="10">
                     <padding>
@@ -59,7 +59,7 @@
                 </VBox>
             </Tab>
 
-            <!-- ----- Sales Report ----- -->
+            <!-- ===== Sales Report ===== -->
             <Tab text="Sales Report">
                 <VBox spacing="15">
                     <padding>
@@ -86,7 +86,7 @@
                 </VBox>
             </Tab>
 
-            <!-- ----- Low Stock Report ----- -->
+            <!-- ===== Low Stock Report ===== -->
             <Tab text="Low Stock Report">
                 <VBox spacing="10">
                     <padding>
