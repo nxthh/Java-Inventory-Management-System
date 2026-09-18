@@ -57,6 +57,12 @@
                     <Tooltip text="Admin only"/>
                 </tooltip>
             </Button>
+            <Button fx:id="usersButton" text="Manage Users" styleClass="sidebar-button"
+                    maxWidth="Infinity" onAction="#handleOpenUsers">
+                <tooltip>
+                    <Tooltip text="Admin only"/>
+                </tooltip>
+            </Button>
 
             <Region VBox.vgrow="ALWAYS"/>
 

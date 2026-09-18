@@ -33,6 +33,10 @@
             <HBox alignment="CENTER_LEFT" spacing="10">
                 <Label text="Search:"/>
                 <TextField fx:id="searchField" promptText="Search by ID or name" prefWidth="220"/>
+
+                <Label text="Category:"/>
+                <ComboBox fx:id="categoryFilterComboBox" prefWidth="130"/>
+
                 <Button text="Refresh" onAction="#handleRefreshProducts"/>
             </HBox>
         </VBox>

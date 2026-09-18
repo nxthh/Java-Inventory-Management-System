@@ -95,6 +95,30 @@ public class UserFileRepository {
     }
 
     /**
+     * Appends one new user account to the end of data/users.txt and
+     * makes it show up in every future loadAll()/findByUsername() call.
+     *
+     * This follows the exact same "append a new line" idea as
+     * TransactionFileRepository.saveTransaction() - the file is never
+     * rewritten from scratch, existing accounts are left completely
+     * untouched, only one new line is added.
+     */
+    public void addUser(User user) {
+        try {
+            Path filePath = Path.of(FILE_PATH);
+            if (filePath.getParent() != null) {
+                Files.createDirectories(filePath.getParent());
+            }
+            try (FileWriter writer = new FileWriter(FILE_PATH, true)) {
+                writer.write(user.toFileLine());
+                writer.write(System.lineSeparator());
+            }
+        } catch (IOException e) {
+            System.out.println("Could not save new user account: " + e.getMessage());
+        }
+    }
+
+    /**
      * Creates the data folder and users.txt file with the two default
      * accounts (admin/admin123, cashier/cashier123) if they do not
      * already exist. This runs once, the first time the application

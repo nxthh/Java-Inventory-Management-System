@@ -114,6 +114,24 @@ public class ReceiptFileRepository {
     }
 
     /**
+     * Deletes the saved receipt file for the given ID, if it exists.
+     * Does nothing (no error) if there is no receipt with that ID -
+     * deleting something that is already gone is not a failure.
+     * Used when an Admin deletes a transaction, so its receipt does not
+     * stick around as an orphaned file.
+     */
+    public void deleteReceipt(String receiptId) {
+        if (receiptId == null || receiptId.isBlank()) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(Path.of(RECEIPTS_FOLDER, receiptId + ".txt"));
+        } catch (IOException e) {
+            System.out.println("Could not delete receipt " + receiptId + ": " + e.getMessage());
+        }
+    }
+
+    /**
      * Checks whether a receipt with the given ID exists on disk, without
      * throwing if it does not. Useful for callers (like the Transaction
      * History screen) that want to disable a "View Receipt" button

@@ -140,6 +140,56 @@ public class TransactionFileRepository {
     }
 
     /**
+     * Removes ONE transaction (matched by ID) from data/transactions.txt
+     * and saves the change. Unlike saveTransaction() (which only ever
+     * appends), this has to rewrite the whole file - there is no way to
+     * remove a block in the middle of a text file without rewriting
+     * everything after it. This follows the exact same
+     * "load everything, change the list, save everything" idea
+     * ProductFileRepository.delete() already uses for products.
+     */
+    public void deleteTransaction(String transactionId) {
+        List<Transaction> transactions = loadTransactions();
+        transactions.removeIf(transaction -> transaction.getTransactionId().equalsIgnoreCase(transactionId));
+        rewriteFile(transactions);
+    }
+
+    /**
+     * Deletes EVERY saved transaction, leaving data/transactions.txt
+     * completely empty. Used by the Admin-only "Clear All History"
+     * action.
+     */
+    public void deleteAllTransactions() {
+        rewriteFile(new ArrayList<>());
+    }
+
+    /**
+     * Rewrites data/transactions.txt from scratch using the given list of
+     * transactions - replacing whatever was there before. Both
+     * deleteTransaction() and deleteAllTransactions() end by calling
+     * this, the same way ProductFileRepository.saveAll() is the one
+     * method every product add/update/delete funnels through.
+     */
+    private void rewriteFile(List<Transaction> transactions) {
+        try {
+            Path path = Path.of(FILE_PATH);
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
+            try (FileWriter writer = new FileWriter(FILE_PATH)) {
+                for (Transaction transaction : transactions) {
+                    for (String line : transaction.toFileLines()) {
+                        writer.write(line);
+                        writer.write(System.lineSeparator());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Could not save transaction file: " + e.getMessage());
+        }
+    }
+
+    /**
      * Searches every saved transaction for one matching the given ID.
      *
      * OOP concept: Optional is used instead of returning null, the same

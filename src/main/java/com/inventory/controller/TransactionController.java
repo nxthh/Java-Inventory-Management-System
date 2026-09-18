@@ -2,6 +2,7 @@ package com.inventory.controller;
 
 import com.inventory.Main;
 import com.inventory.exception.ReceiptException;
+import com.inventory.exception.UnauthorizedActionException;
 import com.inventory.model.CartItem;
 import com.inventory.model.Transaction;
 import com.inventory.repository.ReceiptFileRepository;
@@ -24,6 +25,7 @@ import javafx.scene.control.TableView;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Controller for transactions.fxml - the Transaction History screen.
@@ -64,6 +66,10 @@ public class TransactionController {
     @FXML
     private Button viewReceiptButton;
     @FXML
+    private Button deleteTransactionButton;
+    @FXML
+    private Button clearHistoryButton;
+    @FXML
     private Label statusLabel;
 
     private static final DateTimeFormatter DATE_TIME_FORMAT =
@@ -84,6 +90,7 @@ public class TransactionController {
         setupTableColumns();
         setupSelectionListener();
         roleLabel.setText("Logged in as: " + Session.getCurrentUsername() + " (" + Session.getCurrentRole() + ")");
+        clearHistoryButton.setDisable(!Session.isAdmin());
         refreshTransactions();
         updateActionButtonsState();
     }
@@ -109,6 +116,11 @@ public class TransactionController {
         boolean hasSelection = selectedTransaction != null;
         viewDetailsButton.setDisable(!hasSelection);
         viewReceiptButton.setDisable(!hasSelection);
+        // Deleting one transaction needs BOTH a selected row AND ADMIN
+        // access. "Clear All History" only needs ADMIN access (handled
+        // once, in initialize(), since it never depends on the
+        // selection).
+        deleteTransactionButton.setDisable(!hasSelection || !Session.isAdmin());
     }
 
     /**
@@ -194,6 +206,77 @@ public class TransactionController {
             ReceiptDialog.show("Receipt " + selectedTransaction.getReceiptId(), receiptText);
         } catch (ReceiptException e) {
             showError("Could not open the saved receipt: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Permanently deletes the selected transaction (ADMIN-only, enforced
+     * again by TransactionService even though the button is already
+     * disabled for a CASHIER). Asks for confirmation first, since this
+     * cannot be undone. If the transaction has a saved receipt, that
+     * receipt file is deleted too, so no orphaned file is left behind in
+     * data/receipts/.
+     */
+    @FXML
+    private void handleDeleteTransaction() {
+        if (selectedTransaction == null) {
+            showError("Please select a transaction first.");
+            return;
+        }
+
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Delete transaction " + selectedTransaction.getTransactionId()
+                        + "? This cannot be undone.", ButtonType.YES, ButtonType.NO);
+        confirmAlert.setTitle("Confirm Delete");
+        confirmAlert.setHeaderText(null);
+
+        Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.YES) {
+            return;
+        }
+
+        try {
+            if (selectedTransaction.hasReceipt()) {
+                receiptFileRepository.deleteReceipt(selectedTransaction.getReceiptId());
+            }
+            transactionService.deleteTransaction(selectedTransaction.getTransactionId());
+            selectedTransaction = null;
+            refreshTransactions();
+            updateActionButtonsState();
+            statusLabel.setText("Transaction deleted.");
+        } catch (UnauthorizedActionException e) {
+            showError(e.getMessage());
+        }
+    }
+
+    /**
+     * Permanently deletes EVERY saved transaction (ADMIN-only). This is
+     * the Dashboard/Reports numbers' only source of transaction data, so
+     * clearing history here also resets the Dashboard's "Transactions"/
+     * "Total Revenue" cards and every number on the Reports screen the
+     * next time either is opened - there is no separate report data to
+     * clean up. Asks for confirmation first, since this cannot be undone.
+     */
+    @FXML
+    private void handleClearHistory() {
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Delete ALL transaction history? This cannot be undone.", ButtonType.YES, ButtonType.NO);
+        confirmAlert.setTitle("Confirm Clear All History");
+        confirmAlert.setHeaderText(null);
+
+        Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.YES) {
+            return;
+        }
+
+        try {
+            transactionService.clearAllHistory();
+            selectedTransaction = null;
+            refreshTransactions();
+            updateActionButtonsState();
+            statusLabel.setText("All transaction history has been cleared.");
+        } catch (UnauthorizedActionException e) {
+            showError(e.getMessage());
         }
     }
 

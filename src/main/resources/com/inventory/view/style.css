@@ -114,6 +114,20 @@
     -fx-background-color: #e3f2fd;
 }
 
+/* By default JavaFX's built-in theme switches a selected row's text to
+   white (meant for a dark selection color). Our selection background
+   above (#e3f2fd) is light, so white text would almost disappear into
+   it. This rule forces the text back to a dark color whenever a cell's
+   row is selected, so it stays readable against the light blue
+   highlight. */
+.table-row-cell:selected .text {
+    -fx-fill: #0d47a1;
+}
+
+.table-row-cell:selected .table-cell {
+    -fx-text-fill: #0d47a1;
+}
+
 /* ===================== Tabs (Reports screen) ===================== */
 
 .tab-pane .tab-header-area .tab-header-background {

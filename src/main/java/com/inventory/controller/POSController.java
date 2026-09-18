@@ -69,6 +69,8 @@ public class POSController {
     @FXML
     private TextField searchField;
     @FXML
+    private ComboBox<String> categoryFilterComboBox;
+    @FXML
     private TableView<Product> productTable;
     @FXML
     private TableColumn<Product, String> idColumn;
@@ -179,6 +181,7 @@ public class POSController {
         setupProductSelectionListener();
         setupCartSelectionListener();
         setupSearchListener();
+        setupCategoryFilterComboBox();
         setupPaymentMethodComboBox();
         setupCheckoutListeners();
         refreshProducts();
@@ -234,7 +237,19 @@ public class POSController {
     }
 
     private void setupSearchListener() {
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> applySearch());
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> applyFilters());
+    }
+
+    /**
+     * Fills the Category ComboBox with "All" plus every real category, the
+     * exact same list/pattern InventoryController already uses for its own
+     * category filter. Picking a category re-filters the product table
+     * together with whatever is currently typed in the search box.
+     */
+    private void setupCategoryFilterComboBox() {
+        categoryFilterComboBox.setItems(FXCollections.observableArrayList("All", "Drink", "Food", "Dairy", "Other"));
+        categoryFilterComboBox.setValue("All");
+        categoryFilterComboBox.valueProperty().addListener((obs, oldVal, newVal) -> applyFilters());
     }
 
     /**
@@ -280,22 +295,28 @@ public class POSController {
 
     private void refreshProducts() {
         allProducts = productService.getAllProducts();
-        applySearch();
+        applyFilters();
     }
 
     /**
      * Filters the cached product list by the search box text (matches
-     * either the ID or the name, case-insensitive).
+     * either the ID or the name, case-insensitive) AND the selected
+     * category, the same "both filters apply together" behavior
+     * InventoryController already uses for its own search + category
+     * filter.
      */
-    private void applySearch() {
+    private void applyFilters() {
         String keyword = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+        String categoryChoice = categoryFilterComboBox.getValue();
 
         List<Product> filtered = new ArrayList<>();
         for (Product product : allProducts) {
-            boolean matches = keyword.isEmpty()
+            boolean matchesKeyword = keyword.isEmpty()
                     || product.getId().toLowerCase().contains(keyword)
                     || product.getName().toLowerCase().contains(keyword);
-            if (matches) {
+            boolean matchesCategory = categoryChoice == null || "All".equals(categoryChoice)
+                    || product.getCategory().toDisplayString().equalsIgnoreCase(categoryChoice);
+            if (matchesKeyword && matchesCategory) {
                 filtered.add(product);
             }
         }

@@ -5,6 +5,7 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
@@ -51,6 +52,16 @@
                 <Button text="Refresh" onAction="#handleRefresh"/>
                 <Button fx:id="viewDetailsButton" text="View Details" onAction="#handleViewDetails"/>
                 <Button fx:id="viewReceiptButton" text="View Receipt" onAction="#handleViewReceipt"/>
+                <Button fx:id="deleteTransactionButton" text="Delete Transaction" onAction="#handleDeleteTransaction">
+                    <tooltip>
+                        <Tooltip text="Admin only"/>
+                    </tooltip>
+                </Button>
+                <Button fx:id="clearHistoryButton" text="Clear All History" onAction="#handleClearHistory">
+                    <tooltip>
+                        <Tooltip text="Admin only"/>
+                    </tooltip>
+                </Button>
             </HBox>
 
             <Label fx:id="statusLabel" wrapText="true" style="-fx-text-fill: #c0392b;"/>

@@ -1,5 +1,6 @@
 package com.inventory.service;
 
+import com.inventory.exception.UnauthorizedActionException;
 import com.inventory.model.Transaction;
 import com.inventory.repository.TransactionFileRepository;
 import com.inventory.util.Session;
@@ -57,5 +58,42 @@ public class TransactionService {
      */
     public Optional<Transaction> findTransaction(String transactionId) {
         return transactionFileRepository.findTransaction(transactionId);
+    }
+
+    /**
+     * Permanently deletes ONE saved transaction. ADMIN-only: the "Delete
+     * Transaction" button on the Transaction History screen is already
+     * disabled for a CASHIER, and this check is the same "defense in
+     * depth" idea used everywhere else in the project (e.g.
+     * ReportsController re-checking Session.isAdmin() when its screen
+     * loads) - the rule is enforced here too, in case this method is
+     * ever called another way.
+     *
+     * @throws UnauthorizedActionException if the current user is not an ADMIN
+     */
+    public void deleteTransaction(String transactionId) {
+        requireAdmin("delete transaction history");
+        transactionFileRepository.deleteTransaction(transactionId);
+    }
+
+    /**
+     * Permanently deletes EVERY saved transaction. ADMIN-only, for the
+     * same reason as deleteTransaction() above.
+     *
+     * @throws UnauthorizedActionException if the current user is not an ADMIN
+     */
+    public void clearAllHistory() {
+        requireAdmin("clear transaction history");
+        transactionFileRepository.deleteAllTransactions();
+    }
+
+    /**
+     * Small shared helper: throws UnauthorizedActionException with a
+     * clear message unless the current session belongs to an ADMIN.
+     */
+    private void requireAdmin(String actionDescription) {
+        if (!Session.isAdmin()) {
+            throw new UnauthorizedActionException("Only ADMIN users can " + actionDescription + ".");
+        }
     }
 }

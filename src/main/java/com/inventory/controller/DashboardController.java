@@ -41,6 +41,8 @@ public class DashboardController {
     private Button inventoryButton;
     @FXML
     private Button reportsButton;
+    @FXML
+    private Button usersButton;
 
     @FXML
     private Label currentUserLabel;
@@ -81,6 +83,7 @@ public class DashboardController {
     private void initialize() {
         inventoryButton.setDisable(!Session.isAdmin());
         reportsButton.setDisable(!Session.isAdmin());
+        usersButton.setDisable(!Session.isAdmin());
         currentUserLabel.setText(Session.getCurrentUsername() + " (" + Session.getCurrentRole() + ")");
         refreshSummary();
     }
@@ -171,6 +174,22 @@ public class DashboardController {
     private void handleOpenReports() {
         try {
             Main.switchScene("view/reports.fxml");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Called automatically when the "Manage Users" button is clicked
+     * (linked via onAction="#handleOpenUsers" in dashboard.fxml).
+     * ADMIN-only: the button itself is disabled for CASHIER above, and
+     * UserController double-checks this again when the screen loads
+     * (defense in depth, same pattern InventoryController/ReportsController use).
+     */
+    @FXML
+    private void handleOpenUsers() {
+        try {
+            Main.switchScene("view/users.fxml");
         } catch (IOException e) {
             e.printStackTrace();
         }

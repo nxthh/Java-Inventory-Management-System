@@ -2,10 +2,75 @@
 
 ## Current Status
 
-Parts 1, 2, 3, 4, 5, 6A, 6B, 7, and 8 (Final Integration) are complete
-(Parts 4, 5, and 6B were verified with a real compiler and a real
-JavaFX runtime; Parts 7 and 8 could only be verified by hand-review -
-see the Testing Notes below for why).
+Parts 1, 2, 3, 4, 5, 6A, 6B, 7, 8 (Final Integration), and 9 (UI polish +
+Admin account/history management) are complete (Parts 4, 5, 6B, and 9
+were verified with a real compiler and a real JavaFX runtime; Parts 7
+and 8 could only be verified by hand-review - see their own Testing
+Notes sections for why).
+
+- **Part 9 - Selected-row contrast, POS category filter, Admin account
+  creation, Admin transaction deletion:**
+  - **Selected-row text contrast (`style.css`)**: JavaFX's built-in theme
+    switches a selected row's text to white by default (meant for a dark
+    selection color). This project's selection background is light blue
+    (`#e3f2fd`), so that white text was nearly unreadable. Added a rule
+    that forces selected-row text back to a dark navy (`#0d47a1`)
+    whenever a row is selected, on every screen, from the one shared
+    stylesheet - no FXML file needed to change.
+  - **POS category filter**: `pos.fxml` gained a `categoryFilterComboBox`
+    next to the search box, the exact same "All / Drink / Food / Dairy /
+    Other" pattern `InventoryController` already used for its own filter.
+    `POSController.applySearch()` was renamed to `applyFilters()` and now
+    combines the search keyword AND the selected category, so a cashier
+    can narrow the product list by category while checking out, the same
+    way an admin already could on the Inventory screen.
+  - **Admin creates Cashier accounts**:
+    - `UserFileRepository.addUser(User)` - appends one new account line to
+      `data/users.txt`, the same "append, don't rewrite" idea
+      `TransactionFileRepository.saveTransaction()` already used.
+    - `UserService` (new `service` class) - validates the username/
+      password/confirm-password fields, rejects an already-taken username
+      (case-insensitive), and creates a `Cashier` (deliberately NOT an
+      `Admin` - only Cashier account creation was requested, so that is
+      all this exposes).
+    - Two new exceptions following the project's existing small-
+      RuntimeException-per-concern pattern: `InvalidUserException`
+      (blank fields / mismatched passwords) and
+      `DuplicateUsernameException` (username already taken).
+    - `users.fxml` + `UserController` (new) - an ADMIN-only "Manage
+      Users" screen: a table of every existing account (username + role)
+      plus a small form to create a new Cashier account. Like
+      `ReportsController`, it re-checks `Session.isAdmin()` when the
+      screen loads and sends a CASHIER straight back to the Dashboard
+      with an "Access Denied" alert if it is ever reached another way.
+    - `dashboard.fxml` / `DashboardController` gained a "Manage Users"
+      sidebar button, disabled for CASHIER exactly like the existing
+      Inventory/Reports buttons.
+  - **Admin deletes transaction history (and, since Reports/Dashboard
+    numbers are always calculated LIVE from `data/transactions.txt`,
+    deleting history is all that is needed - there is no separate
+    "reports data" to delete)**:
+    - `TransactionFileRepository` gained `deleteTransaction(id)` and
+      `deleteAllTransactions()`. Unlike `saveTransaction()` (append-only),
+      deleting requires rewriting the whole file - the same "load, change
+      the list, save everything" approach `ProductFileRepository` already
+      uses for product add/update/delete.
+    - `ReceiptFileRepository.deleteReceipt(id)` - deletes the one saved
+      receipt file for a transaction being deleted, so no orphaned
+      `data/receipts/R####.txt` file is left behind.
+    - `TransactionService` gained `deleteTransaction(id)` and
+      `clearAllHistory()`, both ADMIN-only via a new small
+      `UnauthorizedActionException` - the same "defense in depth" idea
+      `ReportsController` already uses, just enforced in the service
+      layer this time since deleting data is more serious than viewing it.
+    - `transactions.fxml` / `TransactionController` gained "Delete
+      Transaction" (needs a selected row + ADMIN) and "Clear All History"
+      (ADMIN-only) buttons, each behind a confirmation `Alert` first since
+      neither can be undone. Deleting a transaction with a saved receipt
+      also deletes that receipt file.
+  - No existing feature, file format, or class was removed or renamed.
+    Parts 1-8 were re-verified (see Part 9 Testing Notes) to confirm
+    nothing broke.
 
 - **Part 8 - Final Integration (real login, File I/O hardening, CSS):**
   - **Real, file-based login with roles** - the single biggest gap found
@@ -236,22 +301,26 @@ see the Testing Notes below for why).
 
 ## Current Phase
 
-Part 8 (Final Integration) completed: a real, file-based username/password
-login with Admin/Cashier roles (`User`/`Admin`/`Cashier`, `UserFileRepository`,
-`AuthService`), a File I/O robustness fix in `ProductFileRepository`, and a
-shared `style.css` theme applied to every screen.
+Part 9 completed: selected-row text contrast fixed in `style.css`, a
+category filter added to the POS screen, a new ADMIN-only "Manage Users"
+screen (`users.fxml`/`UserController`/`UserService`) that lets an Admin
+create Cashier accounts, and ADMIN-only "Delete Transaction"/"Clear All
+History" actions on the Transaction History screen (which, since
+Dashboard/Reports numbers are always calculated live, also clears those
+numbers - no separate report storage exists to clean up).
 
-Explicitly NOT built yet (by design, no such request so far): reports
-broken down by individual product or by cashier, exporting a report to
-a file (e.g. CSV/PDF), charts/graphs of any kind, editing or voiding a
-past transaction, printing a receipt to an actual printer (it is only
-displayed on screen and saved as a `.txt` file), password hashing
+Explicitly NOT built yet (by design, no such request so far): creating
+or editing Admin accounts through the UI (only Cashier account creation
+was requested), editing an existing account's password through the UI,
+undoing a deleted transaction (deletion is permanent, guarded only by a
+confirmation dialog), reports broken down by individual product or by
+cashier, exporting a report to a file (e.g. CSV/PDF), charts/graphs of
+any kind, editing or voiding a past transaction (as opposed to deleting
+it outright), printing a receipt to an actual printer (it is only
+displayed on screen and saved as a `.txt` file), and password hashing
 (passwords are stored in plain text in `data/users.txt`, the same simple
 style as every other data file in this project - acceptable for a
-student project, NOT for a real production system), and an admin screen
-for creating/editing/deleting user accounts through the UI (accounts are
-managed by editing `data/users.txt` directly, the same way products
-started out before the Inventory screen existed).
+student project, NOT for a real production system).
 
 ## Important Rules
 
@@ -602,6 +671,107 @@ trusting this phase:
    Details, View Receipt, ADMIN-sees-all vs CASHIER-sees-own), and the
    Dashboard/Reports numbers should all behave exactly as they did
    before this phase - none of their files were changed.
+
+Please report back anything odd so it can be fixed.
+
+## Part 9 Testing Notes
+
+Unlike Parts 7 and 8, this sandbox had a real JDK 21 (`javac`/`java`),
+real OpenJFX 11 (IntelliJ will use the real JavaFX 21 from Maven, per
+`pom.xml`, which is unaffected), and `Xvfb` for a headless display, so
+Part 9 was verified with real tools rather than only by hand-review:
+
+- `javac --release 21` compiled all 51 source files in the project
+  (Parts 1-9 together) against the JavaFX 11 jars with zero errors.
+- A standalone FXML-loading test (not part of the app, lives outside
+  `src/`) loaded all seven real `.fxml` files - `login`, `dashboard`,
+  `pos`, `inventory`, `transactions`, `reports`, and the new `users` -
+  via `FXMLLoader` under `Xvfb`, the same way JavaFX itself loads them at
+  runtime. All 7 loaded successfully and matched their correct
+  controller class, confirming every `fx:id` and `onAction="#method"` in
+  every new/changed FXML line (the POS category filter, the Dashboard's
+  "Manage Users" button, the Transaction History screen's new Delete/
+  Clear buttons, and the entire new `users.fxml`) lines up with a real
+  `@FXML` field or method.
+- A standalone functional test (not part of the app, lives outside
+  `src/`) ran against a throwaway COPY of the real `data/` folder (the
+  project's real `data/users.txt`, `data/transactions.txt`, and
+  `data/receipts/` were never touched by this test - a diff confirmed
+  they were byte-for-byte unchanged afterward). It exercised
+  `UserService`, `AuthService`, `TransactionService`, and
+  `ReceiptFileRepository` directly with real file I/O. All 25 checks
+  passed, including:
+  - Creating a new Cashier account appends exactly one new line to
+    `data/users.txt` and leaves the existing `admin`/`cashier` accounts
+    completely untouched.
+  - A duplicate username (including a different-case duplicate, e.g.
+    `NUTH2` vs `nuth2`) is rejected with `DuplicateUsernameException`,
+    and a blank username or mismatched password/confirm-password is
+    rejected with `InvalidUserException`.
+  - A freshly created Cashier account can immediately log in for real
+    through `AuthService.login()`.
+  - A CASHIER session is rejected with `UnauthorizedActionException` when
+    calling `TransactionService.deleteTransaction()` or
+    `clearAllHistory()`, and the transaction file is left completely
+    unchanged after a rejected attempt.
+  - An ADMIN session can delete ONE transaction by ID; the other four
+    sample transactions (including the very first and very last) are
+    left byte-for-byte intact, and the deleted transaction's saved
+    receipt file was separately deleted via `ReceiptFileRepository.
+    deleteReceipt()` (mirroring exactly what `TransactionController`
+    does) and confirmed gone from disk.
+  - Deleting an unknown transaction ID does nothing and does not crash.
+  - An ADMIN session can clear ALL transaction history, after which the
+    file is completely empty and the next generated transaction ID
+    correctly restarts from `T0001`.
+- A second standalone test exercised the new POS `applyFilters()` logic
+  (search keyword + category, combined) against the real
+  `data/products.txt` sample data (6 products) read through the real
+  `ProductService`. All 5 checks passed, including that filtering by
+  "Drink" returns only drink products, that "All" returns every product,
+  and that a search term that matches a product in a DIFFERENT category
+  than the one selected correctly returns zero results.
+- A third test launched the real `Main` class end-to-end (via a tiny
+  non-`Application` launcher class, needed only because this sandbox's
+  JavaFX 11 install requires it to detect the JavaFX runtime - IntelliJ's
+  Maven-based JavaFX 21 setup does not need this workaround) under
+  `Xvfb`. It started with no exceptions, confirming Part 9 did not break
+  application startup.
+- These standalone tests are throwaway sandbox tools, not part of the
+  project - they live outside `src/`, so nothing was added to the actual
+  Maven project by this verification step.
+
+Please still run `mvn clean javafx:run` in IntelliJ and check the
+following before trusting this phase:
+
+1. **Selected-row contrast** - click any row in any table (Inventory,
+   POS product/cart, Transactions, Reports). The selected row's text
+   should stay clearly readable (dark navy) against the light blue
+   selection highlight, on every screen.
+2. **POS category filter** - open Point of Sale, pick a category from
+   the new "Category" dropdown next to Search, and confirm the product
+   table narrows to just that category; typing in Search at the same
+   time should narrow further within that category; "All" shows every
+   product again.
+3. **Admin creates a Cashier account** - log in as `admin`, click
+   "Manage Users" in the sidebar, confirm the existing `admin`/`cashier`
+   accounts are listed, create a new Cashier account, confirm it appears
+   in the table immediately, then log out and log in with the new
+   account to confirm it really works. Log in as `cashier` and confirm
+   "Manage Users" is disabled/greyed out.
+4. **Admin deletes transaction history** - log in as `admin`, open
+   Transaction History, select a row, click "Delete Transaction", confirm
+   the confirmation dialog, and confirm that row disappears (and, if it
+   had a receipt, that "View Receipt" for any OTHER remaining transaction
+   still works normally). Click "Clear All History" and confirm every
+   transaction disappears and the Dashboard's "Transactions"/"Total
+   Revenue" cards and every Reports screen number drop to zero after a
+   refresh. Log in as `cashier` and confirm "Delete Transaction" and
+   "Clear All History" are disabled/greyed out.
+5. **Everything from Parts 1-8 still works** - Login, Inventory, POS
+   (cart, checkout, receipt popup), Transaction History (View Details/
+   View Receipt), and the Dashboard/Reports numbers should all behave
+   exactly as they did before this phase.
 
 Please report back anything odd so it can be fixed.
 
